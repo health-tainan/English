@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>每日記英文單字</title>
+  <!-- 引入 Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入 FontAwesome 圖示 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- 自訂動畫與樣式 -->
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+    .animate-fade-in-up { animation: fadeInUp 0.3s ease-out forwards; }
+    
+    /* 單字卡翻轉效果輔助 */
+    .card-transition { transition: all 0.5s ease; }
+    .card-unflipped { transform: scale(0.98); box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+    .card-flipped { transform: scale(1); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); }
+    
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    /* 隱藏滾動條但保持可滾動 */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-slate-50 flex flex-col items-center h-[100dvh] overflow-hidden">
+
+  <!-- 頂部導覽列 -->
+  <header class="bg-white border-b border-gray-200 flex-none w-full shadow-sm z-10">
+    <div class="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
+      <div id="logo-btn" class="flex items-center text-blue-600 font-bold text-lg cursor-pointer">
+        <i class="fa-solid fa-book-open mr-2"></i> VocabDaily
+      </div>
+      <button id="nav-quit-btn" class="hidden text-gray-400 hover:text-gray-600 transition-colors text-sm font-medium bg-gray-100 px-3 py-1.5 rounded-full">
+        中斷離開
+      </button>
+    </div>
+  </header>
+
+  <!-- 主要內容區 -->
+  <main class="flex-1 w-full max-w-md mx-auto overflow-y-auto no-scrollbar relative">
+    
+    <!-- 首頁畫面 -->
+    <div id="screen-home" class="flex flex-col items-center justify-center min-h-full space-y-6 p-6 text-center animate-fade-in pb-12">
+      <div class="bg-blue-100 p-6 rounded-full shadow-inner mb-2">
+        <i class="fa-solid fa-brain text-5xl text-blue-600"></i>
+      </div>
+      <div>
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">每日記英文單字</h1>
+        <p class="text-gray-500">每天 <span id="home-daily-goal">5</span> 個單字，積少成多，提升英語力！</p>
+      </div>
+      
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 w-full">
+        <div class="flex justify-between items-center mb-6">
+          <span class="text-gray-600 font-medium">今日任務目標</span>
+          <span class="bg-blue-100 text-blue-700 py-1 px-3 rounded-full text-sm font-bold"><span id="home-daily-goal-badge">5</span> 字</span>
+        </div>
+        
+        <div class="space-y-4">
+          <button id="btn-start-learning" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl flex items-center justify-center transition-all transform hover:scale-[1.02] active:scale-95 shadow-md">
+            <i class="fa-solid fa-book-open mr-2"></i> 開始今日學習 <i class="fa-solid fa-arrow-right ml-auto"></i>
+          </button>
+          
+          <button id="btn-view-history" class="w-full bg-white hover:bg-gray-50 text-gray-700 border-2 border-gray-200 font-bold py-4 px-6 rounded-xl flex items-center justify-center transition-all transform hover:scale-[1.02] active:scale-95">
+            <i class="fa-solid fa-clock-rotate-left mr-2 text-gray-500"></i> 查看歷史紀錄 <i class="fa-solid fa-chevron-right ml-auto text-gray-400"></i>
+          </button>
+        </div>
+      </div>
+      
+      <div id="cloud-status" class="text-xs text-gray-400 mt-4">正在連線雲端服務...</div>
+    </div>
+
+    <!-- 學習單字畫面 -->
+    <div id="screen-learning" class="hidden flex-col min-h-full p-4 animate-fade-in pb-12">
+      <div class="mb-6">
+        <div class="flex justify-between text-sm text-gray-500 mb-2 font-medium">
+          <span>學習進度</span>
+          <span id="learning-progress-text">0 / 5</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2.5">
+          <div id="learning-progress-bar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <div class="flex-1 flex flex-col items-center justify-center min-h-[400px]">
+        <div id="flashcard" class="w-full bg-white rounded-3xl border border-gray-100 p-8 flex flex-col items-center text-center card-transition card-unflipped">
+          <div class="flex items-center justify-center space-x-4 mb-2">
+            <h2 id="fc-en" class="text-4xl font-extrabold text-gray-800">Word</h2>
+            <button id="fc-audio-en" class="p-3 bg-gray-50 rounded-full hover:bg-blue-50 text-gray-500 hover:text-blue-600 transition-colors">
+              <i class="fa-solid fa-volume-high text-xl"></i>
+            </button>
+          </div>
+          
+          <!-- 未翻轉狀態 -->
+          <div id="fc-front" class="mt-12 flex flex-col items-center w-full">
+            <button id="btn-flip" class="bg-blue-50 text-blue-600 font-semibold py-3 px-8 rounded-full hover:bg-blue-100 transition-colors flex items-center">
+              <i class="fa-solid fa-book-open mr-2"></i> 顯示字義與例句
+            </button>
+          </div>
+
+          <!-- 已翻轉狀態 -->
+          <div id="fc-back" class="hidden mt-6 w-full animate-fade-in-up space-y-6">
+            <div class="bg-blue-50/50 p-4 rounded-xl flex items-center justify-center">
+              <span id="fc-pos" class="text-blue-600 font-bold mr-3 text-lg bg-white px-2 py-1 rounded shadow-sm">pos.</span>
+              <span id="fc-zh" class="text-2xl font-bold text-gray-800">中文意思</span>
+            </div>
+            <div class="text-left border-l-4 border-blue-300 bg-blue-50/30 p-4 rounded-r-xl">
+              <p id="fc-ex" class="text-gray-700 italic text-lg mb-1">"Example sentence."</p>
+              <p id="fc-ex-zh" class="text-gray-500 text-sm mb-3">例句中文翻譯</p>
+              <button id="fc-audio-ex" class="text-sm font-semibold text-blue-500 hover:text-blue-700 flex items-center">
+                <i class="fa-solid fa-volume-high mr-1"></i> 聆聽整句發音
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="learning-actions" class="mt-8 grid grid-cols-2 gap-4 transition-opacity duration-300 opacity-0 pointer-events-none">
+        <button id="btn-feedback-no" class="flex flex-col items-center justify-center py-4 rounded-2xl bg-red-50 text-red-600 hover:bg-red-100 font-bold border border-red-100 transition-colors shadow-sm">
+          <i class="fa-solid fa-xmark text-3xl mb-1"></i> 還不熟
+        </button>
+        <button id="btn-feedback-yes" class="flex flex-col items-center justify-center py-4 rounded-2xl bg-green-50 text-green-600 hover:bg-green-100 font-bold border border-green-100 transition-colors shadow-sm">
+          <i class="fa-solid fa-check text-3xl mb-1"></i> 記住了
+        </button>
+      </div>
+    </div>
+
+    <!-- 測驗畫面 -->
+    <div id="screen-quiz" class="hidden flex-col min-h-full p-4 animate-fade-in pb-12">
+      <div class="mb-8">
+        <div class="flex justify-between text-sm text-gray-500 mb-2 font-medium">
+          <span>隨堂測驗</span>
+          <span id="quiz-progress-text">1 / 5</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2">
+          <div id="quiz-progress-bar" class="bg-indigo-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <div class="text-center mb-10">
+        <h3 class="text-sm text-gray-500 uppercase tracking-widest font-semibold mb-2">請選出正確的中文意思</h3>
+        <div class="flex items-center justify-center space-x-3 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+          <h2 id="quiz-word-en" class="text-4xl font-extrabold text-gray-800">Word</h2>
+          <button id="quiz-audio" class="p-2 text-gray-400 hover:text-indigo-500 transition-colors bg-gray-50 rounded-full">
+            <i class="fa-solid fa-volume-high text-xl"></i>
+          </button>
+        </div>
+      </div>
+
+      <div id="quiz-options" class="space-y-4">
+        <!-- 選項由 JS 動態生成 -->
+      </div>
+    </div>
+
+    <!-- 總結畫面 -->
+    <div id="screen-summary" class="hidden flex-col items-center justify-center min-h-full p-6 text-center animate-fade-in pb-12">
+      <div class="relative mb-8">
+        <div class="absolute inset-0 bg-yellow-200 rounded-full blur-2xl opacity-50 animate-pulse"></div>
+        <div class="relative bg-white p-6 rounded-full shadow-xl">
+          <i class="fa-solid fa-trophy text-6xl text-yellow-500"></i>
+        </div>
+      </div>
+      
+      <h2 class="text-3xl font-extrabold text-gray-800 mb-4">今日任務完成！</h2>
+      
+      <div class="bg-white rounded-3xl shadow-sm border border-gray-100 w-full p-6 mb-8">
+        <div class="grid grid-cols-2 gap-4 divide-x border-b pb-4 mb-4">
+          <div>
+            <p class="text-gray-500 text-sm mb-1">學習單字數</p>
+            <p id="summary-total" class="text-3xl font-bold text-blue-600">5</p>
+          </div>
+          <div>
+            <p class="text-gray-500 text-sm mb-1">測驗得分</p>
+            <p id="summary-score" class="text-3xl font-bold text-indigo-600">5/5</p>
+          </div>
+        </div>
+        
+        <div id="summary-stars" class="flex justify-center text-gray-200 space-x-1 text-3xl">
+          <i class="fa-solid fa-star"></i>
+          <i class="fa-solid fa-star"></i>
+          <i class="fa-solid fa-star"></i>
+        </div>
+        <p id="summary-msg" class="text-gray-600 mt-4 font-medium">太棒了！滿分過關！紀錄已儲存。</p>
+      </div>
+
+      <div class="space-y-3 w-full">
+        <button id="btn-sum-history" class="bg-white text-gray-700 border border-gray-200 font-bold py-3 px-8 rounded-xl w-full hover:bg-gray-50 transition-colors flex items-center justify-center">
+          <i class="fa-solid fa-clock-rotate-left mr-2"></i> 查看學習紀錄
+        </button>
+        <button id="btn-sum-home" class="bg-gray-900 text-white font-bold py-4 px-8 rounded-xl w-full hover:bg-gray-800 transition-colors flex items-center justify-center shadow-lg">
+          <i class="fa-solid fa-rotate-right mr-2"></i> 回到首頁
+        </button>
+      </div>
+    </div>
+
+    <!-- 歷史紀錄畫面 -->
+    <div id="screen-history" class="hidden flex-col min-h-full p-4 animate-fade-in pb-12">
+      <div class="flex items-center mb-6">
+        <button id="btn-hist-back" class="p-2 mr-3 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors flex items-center justify-center w-10 h-10">
+          <i class="fa-solid fa-arrow-left text-gray-700"></i>
+        </button>
+        <h2 class="text-2xl font-bold text-gray-800">學習歷史紀錄</h2>
+      </div>
+
+      <div class="bg-gradient-to-r from-indigo-500 to-blue-500 rounded-2xl p-6 text-white mb-6 shadow-md">
+        <div class="flex items-center space-x-4">
+          <div class="bg-white/20 p-3 rounded-full flex items-center justify-center w-14 h-14">
+            <i class="fa-solid fa-database text-2xl"></i>
+          </div>
+          <div>
+            <p class="text-blue-100 text-sm font-medium">總計學過單字</p>
+            <p id="history-total-count" class="text-3xl font-extrabold">0</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col mb-4">
+        <div class="p-4 border-b border-gray-100 bg-gray-50 flex justify-between text-sm font-medium text-gray-500">
+          <span>單字</span>
+          <span>答對次數</span>
+        </div>
+        
+        <div id="history-list" class="flex flex-col p-2 space-y-2">
+          <!-- 歷史紀錄由 JS 動態生成 -->
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 自訂確認中斷彈窗 -->
+  <div id="modal-quit" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center animate-fade-in p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl transform transition-all">
+      <div class="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 text-red-600 mb-4 mx-auto">
+        <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+      </div>
+      <h3 class="text-xl font-bold text-center text-gray-800 mb-2">確定要中斷學習嗎？</h3>
+      <p class="text-center text-gray-500 mb-6">目前的學習進度將不會被保留。</p>
+      <div class="flex space-x-3">
+        <button id="btn-modal-cancel" class="flex-1 py-3 rounded-xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition-colors">取消</button>
+        <button id="btn-modal-confirm" class="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-200">確定中斷</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    // 引入 Firebase SDK (CDN ESM 模組)
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+    import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+    // 單字資料庫 (150 個高頻單字)
+    const WORD_DATABASE = [
+      { id: 1, en: "Ubiquitous", zh: "無所不在的", pos: "adj.", ex: "Smartphones have become ubiquitous in our daily lives.", ex_zh: "智慧型手機在我們的日常生活中已變得無所不在。" },
+      { id: 2, en: "Ephemeral", zh: "短暫的", pos: "adj.", ex: "Fame in the music industry can be ephemeral.", ex_zh: "音樂界的聲名可能轉瞬即逝。" },
+      { id: 3, en: "Procrastinate", zh: "拖延", pos: "v.", ex: "I usually procrastinate when I have a difficult task.", ex_zh: "當我有困難的任務時，我通常會拖延。" },
+      { id: 4, en: "Eloquent", zh: "雄辯的；有口才的", pos: "adj.", ex: "She gave an eloquent speech at the graduation ceremony.", ex_zh: "她在畢業典禮上發表了雄辯的演說。" },
+      { id: 5, en: "Resilient", zh: "有韌性的；適應力強的", pos: "adj.", ex: "Children are often more resilient than adults.", ex_zh: "兒童通常比成人更有適應力。" },
+      { id: 6, en: "Pragmatic", zh: "務實的", pos: "adj.", ex: "We need to take a pragmatic approach to solving this problem.", ex_zh: "我們需要採取務實的方法來解決這個問題。" },
+      { id: 7, en: "Alleviate", zh: "減輕；緩解", pos: "v.", ex: "The medicine helped alleviate her back pain.", ex_zh: "這藥物有助於減輕她的背痛。" },
+      { id: 8, en: "Nostalgia", zh: "懷舊之情", pos: "n.", ex: "Hearing that old song brought back a wave of nostalgia.", ex_zh: "聽到那首老歌勾起了一陣懷舊之情。" },
+      { id: 9, en: "Lucrative", zh: "賺錢的；有利可圖的", pos: "adj.", ex: "He gave up a lucrative career in law to teach.", ex_zh: "他放棄了利潤豐厚的法律職業去教書。" },
+      { id: 10, en: "Inevitable", zh: "不可避免的", pos: "adj.", ex: "With the changing weather, a delay was inevitable.", ex_zh: "隨著天氣變化，延遲是不可避免的。" },
+      { id: 11, en: "Meticulous", zh: "一絲不苟的；精確的", pos: "adj.", ex: "He is meticulous about his work.", ex_zh: "他對工作一絲不苟。" },
+      { id: 12, en: "Accommodate", zh: "容納；提供住宿", pos: "v.", ex: "The hotel can accommodate up to 500 guests.", ex_zh: "這家飯店最多可容納500名客人。" },
+      { id: 13, en: "Ambiguous", zh: "模稜兩可的", pos: "adj.", ex: "His reply to my question was somewhat ambiguous.", ex_zh: "他對我問題的回答有些模稜兩可。" },
+      { id: 14, en: "Anomaly", zh: "異常；反常事物", pos: "n.", ex: "There is an anomaly in your blood test results.", ex_zh: "你的血液檢查結果有異常。" },
+      { id: 15, en: "Apathy", zh: "冷漠；無興趣", pos: "n.", ex: "There is a growing apathy among voters towards politics.", ex_zh: "選民對政治的冷漠日益增加。" },
+      { id: 16, en: "Baffle", zh: "使困惑", pos: "v.", ex: "The unexpected behavior of the machine completely baffled the engineers.", ex_zh: "機器出乎意料的行為讓工程師們完全困惑了。" },
+      { id: 17, en: "Candid", zh: "坦率的", pos: "adj.", ex: "Let me be quite candid with you: your work is not good enough.", ex_zh: "讓我跟你坦白說：你的工作表現不夠好。" },
+      { id: 18, en: "Catalyst", zh: "催化劑；促使變化的人", pos: "n.", ex: "The protests became a catalyst for political change.", ex_zh: "抗議活動成了政治變革的催化劑。" },
+      { id: 19, en: "Complacent", zh: "自滿的", pos: "adj.", ex: "We cannot afford to become complacent about our success.", ex_zh: "我們不能對我們的成功感到自滿。" },
+      { id: 20, en: "Consensus", zh: "共識", pos: "n.", ex: "They haven't reached a consensus on the new policy yet.", ex_zh: "他們尚未對新政策達成共識。" },
+      { id: 21, en: "Contradict", zh: "反駁；與...矛盾", pos: "v.", ex: "The witness's statement contradicts the evidence.", ex_zh: "目擊者的陳述與證據相矛盾。" },
+      { id: 22, en: "Diligent", zh: "勤奮的", pos: "adj.", ex: "He is a diligent student who always finishes his homework.", ex_zh: "他是個勤奮的學生，總是完成作業。" },
+      { id: 23, en: "Diverse", zh: "多樣的", pos: "adj.", ex: "New York is a very culturally diverse city.", ex_zh: "紐約是一個文化非常多樣的城市。" },
+      { id: 24, en: "Elaborate", zh: "詳細說明", pos: "v.", ex: "Could you elaborate on that idea?", ex_zh: "你能詳細說明那個想法嗎？" },
+      { id: 25, en: "Empathy", zh: "同理心", pos: "n.", ex: "A doctor needs to have empathy for patients.", ex_zh: "醫生需要對病人有同理心。" },
+      { id: 26, en: "Enhance", zh: "提升；增加", pos: "v.", ex: "Adding garlic will enhance the flavor of the dish.", ex_zh: "加大蒜會提升菜餚的風味。" },
+      { id: 27, en: "Evoke", zh: "喚起（記憶或情感）", pos: "v.", ex: "The smell of chalk always evokes memories of my school days.", ex_zh: "粉筆的味道總是喚起我學生時代的回憶。" },
+      { id: 28, en: "Fascinate", zh: "深深吸引；迷住", pos: "v.", ex: "Space exploration has always fascinated me.", ex_zh: "太空探索一直深深吸引著我。" },
+      { id: 29, en: "Fluctuate", zh: "波動；變動", pos: "v.", ex: "Vegetable prices fluctuate according to the season.", ex_zh: "蔬菜價格會隨著季節波動。" },
+      { id: 30, en: "Genuine", zh: "真正的；真誠的", pos: "adj.", ex: "He shows a genuine interest in helping others.", ex_zh: "他展現出幫助別人的真誠興趣。" },
+      { id: 31, en: "Hierarchy", zh: "階層；等級制度", pos: "n.", ex: "The corporate hierarchy determines who makes the decisions.", ex_zh: "企業階層決定了誰來做決策。" },
+      { id: 32, en: "Hypothesis", zh: "假設", pos: "n.", ex: "We conducted experiments to test our hypothesis.", ex_zh: "我們進行了實驗來測試我們的假設。" },
+      { id: 33, en: "Implement", zh: "實施；執行", pos: "v.", ex: "The government promised to implement the new law by next year.", ex_zh: "政府承諾在明年實施新法律。" },
+      { id: 34, en: "Incentive", zh: "誘因；刺激", pos: "n.", ex: "Bonus payments provide an incentive to work harder.", ex_zh: "獎金提供了更努力工作的誘因。" },
+      { id: 35, en: "Innovate", zh: "創新", pos: "v.", ex: "Companies must innovate to stay competitive.", ex_zh: "公司必須創新以保持競爭力。" },
+      { id: 36, en: "Interpret", zh: "解釋；理解", pos: "v.", ex: "How do you interpret these survey results?", ex_zh: "你如何解釋這些調查結果？" },
+      { id: 37, en: "Intuition", zh: "直覺", pos: "n.", ex: "I trusted my intuition and chose the left path.", ex_zh: "我相信我的直覺並選擇了左邊的路。" },
+      { id: 38, en: "Manipulate", zh: "操縱", pos: "v.", ex: "She knows how to manipulate public opinion.", ex_zh: "她知道如何操縱公眾輿論。" },
+      { id: 39, en: "Mundane", zh: "平凡的；單調的", pos: "adj.", ex: "Washing dishes is a mundane but necessary chore.", ex_zh: "洗碗是件平凡但必要的家務。" },
+      { id: 40, en: "Obscure", zh: "無名的；模糊的", pos: "adj.", ex: "The details of his early life remain obscure.", ex_zh: "他早年生活的細節仍然不為人知。" },
+      { id: 41, en: "Paradigm", zh: "典範；範例", pos: "n.", ex: "His research created a new paradigm in computer science.", ex_zh: "他的研究在計算機科學中創造了新的典範。" },
+      { id: 42, en: "Perceive", zh: "察覺；認為", pos: "v.", ex: "I perceived a slight change in his tone of voice.", ex_zh: "我察覺到他語氣中有些微的改變。" },
+      { id: 43, en: "Profound", zh: "深遠的；深刻的", pos: "adj.", ex: "The invention of the internet had a profound impact on society.", ex_zh: "網際網路的發明對社會產生了深遠的影響。" },
+      { id: 44, en: "Provoke", zh: "激怒；引起", pos: "v.", ex: "His careless words provoked a strong reaction.", ex_zh: "他粗心的話語引起了強烈的反應。" },
+      { id: 45, en: "Reconcile", zh: "使和解；調和", pos: "v.", ex: "It is difficult to reconcile his words with his actions.", ex_zh: "要將他的言論與行動調和起來是很困難的。" },
+      { id: 46, en: "Retain", zh: "保留；保持", pos: "v.", ex: "You should retain your receipts for tax purposes.", ex_zh: "你應該保留收據以備報稅之用。" },
+      { id: 47, en: "Scrutinize", zh: "仔細檢查", pos: "v.", ex: "The committee will scrutinize every detail of the contract.", ex_zh: "委員會將仔細檢查合約的每一個細節。" },
+      { id: 48, en: "Skeptical", zh: "懷疑的", pos: "adj.", ex: "Many people are skeptical about the politician's promises.", ex_zh: "許多人對這位政治人物的承諾感到懷疑。" },
+      { id: 49, en: "Spontaneous", zh: "自發的；非事先安排的", pos: "adj.", ex: "The crowd gave a spontaneous cheer.", ex_zh: "人群發出了一陣自發的歡呼。" },
+      { id: 50, en: "Stimulate", zh: "刺激；激勵", pos: "v.", ex: "Coffee can stimulate your nervous system.", ex_zh: "咖啡能刺激你的神經系統。" },
+      { id: 51, en: "Tangible", zh: "有形的；實質的", pos: "adj.", ex: "We need tangible evidence to prove his guilt.", ex_zh: "我們需要有形的證據來證明他有罪。" },
+      { id: 52, en: "Tedious", zh: "單調乏味的", pos: "adj.", ex: "Data entry can be a very tedious task.", ex_zh: "資料輸入可能是個非常單調乏味的任務。" },
+      { id: 53, en: "Thrive", zh: "繁榮；茁壯成長", pos: "v.", ex: "Plants thrive in sunlight and rich soil.", ex_zh: "植物在陽光和肥沃的土壤中茁壯成長。" },
+      { id: 54, en: "Transparent", zh: "透明的；公開誠實的", pos: "adj.", ex: "The company's financial operations need to be transparent.", ex_zh: "公司的財務運作需要透明。" },
+      { id: 55, en: "Trigger", zh: "觸發；引起", pos: "v.", ex: "Certain foods can trigger an allergic reaction.", ex_zh: "某些食物會引發過敏反應。" },
+      { id: 56, en: "Unanimous", zh: "全體一致的", pos: "adj.", ex: "The board made a unanimous decision to promote him.", ex_zh: "董事會一致決定晉升他。" },
+      { id: 57, en: "Valid", zh: "有效的；合理的", pos: "adj.", ex: "You must present a valid passport to travel.", ex_zh: "你必須出示有效的護照才能旅行。" },
+      { id: 58, en: "Vulnerable", zh: "易受傷害的；脆弱的", pos: "adj.", ex: "Elderly people are more vulnerable to the flu.", ex_zh: "老年人更容易感染流感。" },
+      { id: 59, en: "Yield", zh: "產生；屈服", pos: "v.", ex: "The apple tree yielded a rich harvest this year.", ex_zh: "蘋果樹今年結出了豐富的果實。" },
+      { id: 60, en: "Zealous", zh: "熱情的；狂熱的", pos: "adj.", ex: "He is a zealous supporter of environmental protection.", ex_zh: "他是環境保護的狂熱支持者。" },
+      { id: 61, en: "Abandon", zh: "放棄", pos: "v.", ex: "They had to abandon the sinking ship.", ex_zh: "他們不得不放棄下沉的船。" },
+      { id: 62, en: "Abundant", zh: "豐富的", pos: "adj.", ex: "There is an abundant supply of food.", ex_zh: "有豐富的食物供應。" },
+      { id: 63, en: "Accelerate", zh: "加速", pos: "v.", ex: "The car accelerated smoothly.", ex_zh: "車子平穩地加速了。" },
+      { id: 64, en: "Accessible", zh: "可接近的", pos: "adj.", ex: "The building is accessible by wheelchair.", ex_zh: "這棟建築設有輪椅通道。" },
+      { id: 65, en: "Acclaim", zh: "稱讚", pos: "n.", ex: "His new novel received critical acclaim.", ex_zh: "他的新小說獲得了評論界的稱讚。" },
+      { id: 66, en: "Accumulate", zh: "累積", pos: "v.", ex: "Dust had accumulated on the old furniture.", ex_zh: "舊家具上積滿了灰塵。" },
+      { id: 67, en: "Accurate", zh: "準確的", pos: "adj.", ex: "The weather forecast was incredibly accurate.", ex_zh: "天氣預報準確得令人難以置信。" },
+      { id: 68, en: "Acquire", zh: "獲得", pos: "v.", ex: "She acquired a deep knowledge of the subject.", ex_zh: "她獲得了這門學科的深厚知識。" },
+      { id: 69, en: "Adapt", zh: "適應", pos: "v.", ex: "It took time to adapt to the new environment.", ex_zh: "適應新環境需要時間。" },
+      { id: 70, en: "Adequate", zh: "足夠的", pos: "adj.", ex: "The room is small but adequate for my needs.", ex_zh: "房間雖然小，但對我來說已經足夠了。" },
+      { id: 71, en: "Adjacent", zh: "相鄰的", pos: "adj.", ex: "The school is adjacent to the park.", ex_zh: "學校就在公園旁邊。" },
+      { id: 72, en: "Advocate", zh: "提倡", pos: "v.", ex: "He advocates for environmental protection.", ex_zh: "他提倡環境保護。" },
+      { id: 73, en: "Aesthetic", zh: "美學的", pos: "adj.", ex: "The new building has little aesthetic appeal.", ex_zh: "這棟新建築沒什麼美感。" },
+      { id: 74, en: "Aggregate", zh: "總計", pos: "n.", ex: "The aggregate number of visitors was huge.", ex_zh: "訪客的總數非常龐大。" },
+      { id: 75, en: "Allocate", zh: "分配", pos: "v.", ex: "We need to allocate more funds to education.", ex_zh: "我們需要分配更多資金給教育。" },
+      { id: 76, en: "Alter", zh: "改變", pos: "v.", ex: "We had to alter our plans due to the weather.", ex_zh: "由於天氣原因，我們不得不改變計畫。" },
+      { id: 77, en: "Alternative", zh: "替代方案", pos: "n.", ex: "We have no alternative but to wait.", ex_zh: "我們別無選擇，只能等待。" },
+      { id: 78, en: "Amateur", zh: "業餘的", pos: "adj.", ex: "He is an amateur photographer.", ex_zh: "他是個業餘攝影師。" },
+      { id: 79, en: "Ambitious", zh: "有野心的", pos: "adj.", ex: "She is an ambitious young lawyer.", ex_zh: "她是個有野心的年輕律師。" },
+      { id: 80, en: "Amend", zh: "修正", pos: "v.", ex: "The contract was amended last week.", ex_zh: "合約在上週已經修正過了。" },
+      { id: 81, en: "Ample", zh: "充足的", pos: "adj.", ex: "There is ample parking space behind the hotel.", ex_zh: "飯店後面有充足的停車位。" },
+      { id: 82, en: "Anticipate", zh: "預期", pos: "v.", ex: "We don't anticipate any major problems.", ex_zh: "我們預期不會有什麼大問題。" },
+      { id: 83, en: "Apparent", zh: "明顯的", pos: "adj.", ex: "It was apparent that he was lying.", ex_zh: "很明顯他在說謊。" },
+      { id: 84, en: "Appeal", zh: "吸引；呼籲", pos: "v.", ex: "The police appealed to the public for information.", ex_zh: "警方呼籲民眾提供線索。" },
+      { id: 85, en: "Appreciate", zh: "欣賞；感激", pos: "v.", ex: "I really appreciate your help.", ex_zh: "我非常感激你的幫助。" },
+      { id: 86, en: "Approach", zh: "接近；方法", pos: "n.", ex: "We need a new approach to the problem.", ex_zh: "我們需要一個解決這個問題的新方法。" },
+      { id: 87, en: "Appropriate", zh: "適當的", pos: "adj.", ex: "Is this dress appropriate for a wedding?", ex_zh: "這件洋裝適合參加婚禮嗎？" },
+      { id: 88, en: "Arbitrary", zh: "任意的", pos: "adj.", ex: "The choice of players seemed completely arbitrary.", ex_zh: "選擇球員的過程似乎完全是任意的。" },
+      { id: 89, en: "Assess", zh: "評估", pos: "v.", ex: "The value of the business was assessed at $1 million.", ex_zh: "這家企業的價值被評估為一百萬美元。" },
+      { id: 90, en: "Assign", zh: "指派", pos: "v.", ex: "The teacher assigned a lot of homework.", ex_zh: "老師指派了許多作業。" },
+      { id: 91, en: "Assume", zh: "假設", pos: "v.", ex: "I assume you already know the news.", ex_zh: "我假設你已經知道這個消息了。" },
+      { id: 92, en: "Astonish", zh: "使驚訝", pos: "v.", ex: "Her performance astonished the audience.", ex_zh: "她的表演讓觀眾感到驚訝。" },
+      { id: 93, en: "Atmosphere", zh: "氣氛", pos: "n.", ex: "The hotel has a very relaxing atmosphere.", ex_zh: "這家飯店有非常令人放鬆的氣氛。" },
+      { id: 94, en: "Attach", zh: "附加", pos: "v.", ex: "Please attach a recent photograph to your form.", ex_zh: "請在表格上附上一張近照。" },
+      { id: 95, en: "Attain", zh: "達到", pos: "v.", ex: "He has attained the highest grade in his exams.", ex_zh: "他在考試中獲得了最高分。" },
+      { id: 96, en: "Attribute", zh: "歸因於", pos: "v.", ex: "He attributed his success to hard work.", ex_zh: "他將自己的成功歸因於努力工作。" },
+      { id: 97, en: "Authentic", zh: "真實的", pos: "adj.", ex: "The restaurant serves authentic Italian food.", ex_zh: "這家餐廳提供道地的義大利美食。" },
+      { id: 98, en: "Available", zh: "可用的", pos: "adj.", ex: "This information is available on the internet.", ex_zh: "這些資訊可以在網路上找到。" },
+      { id: 99, en: "Awkward", zh: "尷尬的", pos: "adj.", ex: "There was an awkward silence in the room.", ex_zh: "房間裡出現了尷尬的沉默。" },
+      { id: 100, en: "Barrier", zh: "障礙", pos: "n.", ex: "Language can be a barrier to communication.", ex_zh: "語言可能成為溝通的障礙。" },
+      { id: 101, en: "Benefit", zh: "好處", pos: "n.", ex: "Exercise brings many benefits to your health.", ex_zh: "運動為你的健康帶來許多好處。" },
+      { id: 102, en: "Bias", zh: "偏見", pos: "n.", ex: "The news report was full of political bias.", ex_zh: "這篇新聞報導充滿了政治偏見。" },
+      { id: 103, en: "Brief", zh: "簡短的", pos: "adj.", ex: "Let's keep this meeting brief.", ex_zh: "讓我們把會議開短一點。" },
+      { id: 104, en: "Brilliant", zh: "聰穎的", pos: "adj.", ex: "She has a brilliant mind.", ex_zh: "她有一顆聰穎的頭腦。" },
+      { id: 105, en: "Broadcast", zh: "廣播", pos: "v.", ex: "The tennis match will be broadcast live.", ex_zh: "這場網球比賽將進行現場轉播。" },
+      { id: 106, en: "Budget", zh: "預算", pos: "n.", ex: "We have a very tight budget for this project.", ex_zh: "我們這個專案的預算非常吃緊。" },
+      { id: 107, en: "Calculate", zh: "計算", pos: "v.", ex: "Please calculate the total cost.", ex_zh: "請計算總成本。" },
+      { id: 108, en: "Campaign", zh: "活動", pos: "n.", ex: "The advertising campaign was a huge success.", ex_zh: "這次廣告活動取得了巨大的成功。" },
+      { id: 109, en: "Capacity", zh: "容量；能力", pos: "n.", ex: "The theater has a seating capacity of 500.", ex_zh: "劇院的座位容量為 500 人。" },
+      { id: 110, en: "Capture", zh: "捕捉", pos: "v.", ex: "The photographer captured the beautiful sunset.", ex_zh: "攝影師捕捉到了美麗的日落。" },
+      { id: 111, en: "Category", zh: "類別", pos: "n.", ex: "You can browse the books by category.", ex_zh: "你可以依類別瀏覽書籍。" },
+      { id: 112, en: "Cease", zh: "停止", pos: "v.", ex: "The factory ceased operations last year.", ex_zh: "工廠去年已經停止營運。" },
+      { id: 113, en: "Challenge", zh: "挑戰", pos: "n.", ex: "Finding a solution will be a big challenge.", ex_zh: "找到解決方案將是一個很大的挑戰。" },
+      { id: 114, en: "Characteristic", zh: "特徵", pos: "n.", ex: "Kindness is one of his best characteristics.", ex_zh: "仁慈是他最好的特質之一。" },
+      { id: 115, en: "Clarify", zh: "澄清", pos: "v.", ex: "Could you clarify the first point you made?", ex_zh: "你能澄清一下你提出的第一點嗎？" },
+      { id: 116, en: "Coincide", zh: "巧合", pos: "v.", ex: "My birthday coincides with the holiday.", ex_zh: "我的生日剛好與假期巧合。" },
+      { id: 117, en: "Collapse", zh: "倒塌", pos: "v.", ex: "The roof collapsed under the weight of the snow.", ex_zh: "屋頂在雪的重量下倒塌了。" },
+      { id: 118, en: "Colleague", zh: "同事", pos: "n.", ex: "I am having dinner with a colleague tonight.", ex_zh: "我今晚要和一位同事共進晚餐。" },
+      { id: 119, en: "Commence", zh: "開始", pos: "v.", ex: "The meeting will commence at 2 PM.", ex_zh: "會議將於下午兩點開始。" },
+      { id: 120, en: "Commit", zh: "承諾", pos: "v.", ex: "They are committed to improving the environment.", ex_zh: "他們承諾要改善環境。" },
+      { id: 121, en: "Commodity", zh: "商品", pos: "n.", ex: "Oil is an important global commodity.", ex_zh: "石油是全球重要的商品。" },
+      { id: 122, en: "Communicate", zh: "溝通", pos: "v.", ex: "We communicate mostly by email.", ex_zh: "我們主要透過電子郵件溝通。" },
+      { id: 123, en: "Community", zh: "社區", pos: "n.", ex: "He is a respected member of the local community.", ex_zh: "他是當地社區受人尊敬的一員。" },
+      { id: 124, en: "Compare", zh: "比較", pos: "v.", ex: "You can't compare the two things.", ex_zh: "你不能把這兩件事拿來比較。" },
+      { id: 125, en: "Compel", zh: "強迫", pos: "v.", ex: "He felt compelled to tell the truth.", ex_zh: "他覺得自己被迫說出真相。" },
+      { id: 126, en: "Compensate", zh: "補償", pos: "v.", ex: "The company compensated him for his injury.", ex_zh: "公司為他的受傷提供了補償。" },
+      { id: 127, en: "Compete", zh: "競爭", pos: "v.", ex: "We have to compete with larger companies.", ex_zh: "我們必須與更大的公司競爭。" },
+      { id: 128, en: "Compile", zh: "編譯；收集", pos: "v.", ex: "She compiled a list of potential clients.", ex_zh: "她編製了一份潛在客戶名單。" },
+      { id: 129, en: "Complicate", zh: "使複雜", pos: "v.", ex: "Don't complicate the issue any further.", ex_zh: "別再讓問題變得更複雜了。" },
+      { id: 130, en: "Component", zh: "零件", pos: "n.", ex: "The factory produces computer components.", ex_zh: "這家工廠生產電腦零件。" },
+      { id: 131, en: "Compose", zh: "組成", pos: "v.", ex: "Water is composed of hydrogen and oxygen.", ex_zh: "水是由氫和氧組成的。" },
+      { id: 132, en: "Comprehend", zh: "理解", pos: "v.", ex: "I don't fully comprehend the situation.", ex_zh: "我無法完全理解目前的狀況。" },
+      { id: 133, en: "Compromise", zh: "妥協", pos: "v.", ex: "Both sides are willing to compromise.", ex_zh: "雙方都願意妥協。" },
+      { id: 134, en: "Conceal", zh: "隱藏", pos: "v.", ex: "He tried to conceal his true identity.", ex_zh: "他試圖隱藏自己的真實身分。" },
+      { id: 135, en: "Concentrate", zh: "專心", pos: "v.", ex: "I can't concentrate with all that noise.", ex_zh: "在那麼吵的環境下我無法專心。" },
+      { id: 136, en: "Concept", zh: "概念", pos: "n.", ex: "The concept of infinity is hard to grasp.", ex_zh: "無限的概念很難理解。" },
+      { id: 137, en: "Conclude", zh: "結論", pos: "v.", ex: "What can we conclude from this evidence?", ex_zh: "我們能從這些證據中得出什麼結論？" },
+      { id: 138, en: "Concrete", zh: "具體的", pos: "adj.", ex: "We need concrete proof of your claims.", ex_zh: "我們需要你提出主張的具體證據。" },
+      { id: 139, en: "Condemn", zh: "譴責", pos: "v.", ex: "The government condemned the terrorist attack.", ex_zh: "政府譴責了這次恐怖攻擊。" },
+      { id: 140, en: "Conduct", zh: "進行", pos: "v.", ex: "The scientists conducted a series of experiments.", ex_zh: "科學家們進行了一系列實驗。" },
+      { id: 141, en: "Confess", zh: "承認", pos: "v.", ex: "He confessed to sleeping during the meeting.", ex_zh: "他承認自己在會議中睡著了。" },
+      { id: 142, en: "Confident", zh: "自信的", pos: "adj.", ex: "She is confident in her ability to win.", ex_zh: "她對自己獲勝的能力充滿信心。" },
+      { id: 143, en: "Confirm", zh: "確認", pos: "v.", ex: "Please confirm your reservation by tomorrow.", ex_zh: "請在明天前確認您的預訂。" },
+      { id: 144, en: "Conflict", zh: "衝突", pos: "n.", ex: "There is a conflict of interest here.", ex_zh: "這裡存在利益衝突。" },
+      { id: 145, en: "Conform", zh: "遵從", pos: "v.", ex: "You must conform to the safety rules.", ex_zh: "你必須遵守安全規定。" },
+      { id: 146, en: "Confront", zh: "面對", pos: "v.", ex: "He confronted his boss about the issue.", ex_zh: "他當面向老闆提出了這個問題。" },
+      { id: 147, en: "Confuse", zh: "使困惑", pos: "v.", ex: "The instructions confused me completely.", ex_zh: "這些指示讓我完全搞糊塗了。" },
+      { id: 148, en: "Congratulate", zh: "祝賀", pos: "v.", ex: "I want to congratulate you on your success.", ex_zh: "我想祝賀你的成功。" },
+      { id: 149, en: "Connect", zh: "連接", pos: "v.", ex: "The bridge connects the two cities.", ex_zh: "這座橋連接了兩座城市。" },
+      { id: 150, en: "Conscious", zh: "意識到的", pos: "adj.", ex: "He was fully conscious of his mistake.", ex_zh: "他完全意識到了自己的錯誤。" },
+      { id: 151, en: "Consequence", zh: "結果；後果", pos: "n.", ex: "He must face the consequences of his actions.", ex_zh: "他必須面對他行為的後果。" },
+      { id: 152, en: "Conservative", zh: "保守的", pos: "adj.", ex: "Older people tend to be more conservative.", ex_zh: "老年人往往比較保守。" },
+      { id: 153, en: "Consistent", zh: "一致的", pos: "adj.", ex: "We need to be consistent in our approach.", ex_zh: "我們的方法需要保持一致。" },
+      { id: 154, en: "Constant", zh: "不斷的", pos: "adj.", ex: "The machine requires constant maintenance.", ex_zh: "這台機器需要不斷的維護。" },
+      { id: 155, en: "Construct", zh: "建造", pos: "v.", ex: "They plan to construct a new bridge here.", ex_zh: "他們計畫在這裡建造一座新橋。" },
+      { id: 156, en: "Consult", zh: "諮詢", pos: "v.", ex: "You should consult a doctor about your symptoms.", ex_zh: "你應該就你的症狀諮詢醫生。" },
+      { id: 157, en: "Consume", zh: "消耗；消費", pos: "v.", ex: "This car consumes a lot of fuel.", ex_zh: "這輛車耗油量很大。" },
+      { id: 158, en: "Contemporary", zh: "當代的", pos: "adj.", ex: "She is a famous contemporary artist.", ex_zh: "她是一位著名的當代藝術家。" },
+      { id: 159, en: "Context", zh: "上下文；背景", pos: "n.", ex: "You need to understand the historical context.", ex_zh: "你需要了解歷史背景。" },
+      { id: 160, en: "Contrast", zh: "對比", pos: "n.", ex: "There is a sharp contrast between the two brothers.", ex_zh: "這兩兄弟之間有著鮮明的對比。" },
+      { id: 161, en: "Contribute", zh: "貢獻", pos: "v.", ex: "Everyone should contribute to the discussion.", ex_zh: "每個人都應該參與討論並做出貢獻。" },
+      { id: 162, en: "Controversial", zh: "有爭議的", pos: "adj.", ex: "Abortion is a highly controversial issue.", ex_zh: "墮胎是一個極具爭議的議題。" },
+      { id: 163, en: "Convene", zh: "召集；開會", pos: "v.", ex: "The committee will convene tomorrow morning.", ex_zh: "委員會將於明天上午開會。" },
+      { id: 164, en: "Conventional", zh: "傳統的；常規的", pos: "adj.", ex: "He uses conventional methods to teach math.", ex_zh: "他使用傳統的方法來教數學。" },
+      { id: 165, en: "Convert", zh: "轉換", pos: "v.", ex: "The sofa can convert into a bed.", ex_zh: "這張沙發可以換成一張床。" },
+      { id: 166, en: "Convey", zh: "傳達", pos: "v.", ex: "I want to convey my gratitude to everyone.", ex_zh: "我想向大家傳達我的感激之情。" },
+      { id: 167, en: "Convince", zh: "說服", pos: "v.", ex: "He tried to convince me to buy the car.", ex_zh: "他試圖說服我買那輛車。" },
+      { id: 168, en: "Cooperate", zh: "合作", pos: "v.", ex: "We must cooperate to finish the project on time.", ex_zh: "我們必須合作才能按時完成專案。" },
+      { id: 169, en: "Coordinate", zh: "協調", pos: "v.", ex: "She coordinates the different departments.", ex_zh: "她負責協調不同的部門。" },
+      { id: 170, en: "Core", zh: "核心", pos: "n.", ex: "The earth's core is extremely hot.", ex_zh: "地球的核心非常熱。" },
+      { id: 171, en: "Corporate", zh: "企業的", pos: "adj.", ex: "Corporate profits have increased this year.", ex_zh: "今年企業利潤有所增加。" },
+      { id: 172, en: "Correspond", zh: "相符；通信", pos: "v.", ex: "Your story doesn't correspond with the facts.", ex_zh: "你的說法與事實不符。" },
+      { id: 173, en: "Crucial", zh: "關鍵的", pos: "adj.", ex: "Vitamins are crucial for maintaining good health.", ex_zh: "維生素對維持身體健康至關重要。" },
+      { id: 174, en: "Cultivate", zh: "培養；耕作", pos: "v.", ex: "He is trying to cultivate a better relationship with his boss.", ex_zh: "他正努力培養與老闆更好的關係。" },
+      { id: 175, en: "Currency", zh: "貨幣", pos: "n.", ex: "The US dollar is a strong currency.", ex_zh: "美元是強勢貨幣。" },
+      { id: 176, en: "Debate", zh: "辯論", pos: "n.", ex: "There has been much debate about this issue.", ex_zh: "關於這個問題一直有很多辯論。" },
+      { id: 177, en: "Decade", zh: "十年", pos: "n.", ex: "He has lived in London for a decade.", ex_zh: "他已經在倫敦住了十年。" },
+      { id: 178, en: "Decline", zh: "拒絕；下降", pos: "v.", ex: "The company's profits declined last year.", ex_zh: "該公司的利潤去年下降了。" },
+      { id: 179, en: "Deduct", zh: "扣除", pos: "v.", ex: "The cost will be deducted from your salary.", ex_zh: "費用將從你的工資中扣除。" },
+      { id: 180, en: "Defend", zh: "防禦；辯護", pos: "v.", ex: "The soldiers fought to defend their country.", ex_zh: "士兵們為了保衛國家而戰。" },
+      { id: 181, en: "Deficit", zh: "赤字", pos: "n.", ex: "The government is facing a huge budget deficit.", ex_zh: "政府正面臨巨額預算赤字。" },
+      { id: 182, en: "Define", zh: "定義", pos: "v.", ex: "How would you define the word 'success'?", ex_zh: "你會如何定義「成功」這個詞？" },
+      { id: 183, en: "Delegate", zh: "委派", pos: "v.", ex: "A good manager knows how to delegate tasks.", ex_zh: "一個好的管理者知道如何委派任務。" },
+      { id: 184, en: "Deliberate", zh: "故意的", pos: "adj.", ex: "It was a deliberate attempt to ruin his reputation.", ex_zh: "這是蓄意破壞他名聲的企圖。" },
+      { id: 185, en: "Demand", zh: "需求", pos: "n.", ex: "There is a high demand for organic food.", ex_zh: "有機食品的需求量很大。" },
+      { id: 186, en: "Demonstrate", zh: "示範；證明", pos: "v.", ex: "Let me demonstrate how this machine works.", ex_zh: "讓我示範這台機器如何運作。" },
+      { id: 187, en: "Dense", zh: "密集的；濃密的", pos: "adj.", ex: "The forest is too dense to walk through.", ex_zh: "這座森林太茂密，無法穿過。" },
+      { id: 188, en: "Deny", zh: "否認", pos: "v.", ex: "He denied stealing the money.", ex_zh: "他否認偷了錢。" },
+      { id: 189, en: "Depict", zh: "描繪", pos: "v.", ex: "The painting depicts a beautiful sunset.", ex_zh: "這幅畫描繪了美麗的日落。" },
+      { id: 190, en: "Depress", zh: "使沮喪；使蕭條", pos: "v.", ex: "The bad news depressed everyone.", ex_zh: "這個壞消息讓大家都很沮喪。" },
+      { id: 191, en: "Derive", zh: "取得；源自", pos: "v.", ex: "Many words are derived from Latin.", ex_zh: "許多單字源自拉丁語。" },
+      { id: 192, en: "Descend", zh: "下降", pos: "v.", ex: "The plane began to descend.", ex_zh: "飛機開始下降。" },
+      { id: 193, en: "Deserve", zh: "應得", pos: "v.", ex: "You deserve a holiday after all that hard work.", ex_zh: "辛勤工作後你應得一個假期。" },
+      { id: 194, en: "Designate", zh: "指定", pos: "v.", ex: "He was designated as the team leader.", ex_zh: "他被指定為團隊的領導者。" },
+      { id: 195, en: "Desperate", zh: "絕望的；極度渴望的", pos: "adj.", ex: "They are in desperate need of food and water.", ex_zh: "他們極度需要食物和水。" },
+      { id: 196, en: "Despite", zh: "儘管", pos: "prep.", ex: "We enjoyed the picnic despite the rain.", ex_zh: "儘管下雨，我們還是享受了野餐。" },
+      { id: 197, en: "Destination", zh: "目的地", pos: "n.", ex: "We finally reached our destination.", ex_zh: "我們終於到達了目的地。" },
+      { id: 198, en: "Detect", zh: "偵測；察覺", pos: "v.", ex: "The alarm can detect smoke.", ex_zh: "這個警報器可以偵測煙霧。" },
+      { id: 199, en: "Deteriorate", zh: "惡化", pos: "v.", ex: "His health began to deteriorate rapidly.", ex_zh: "他的健康狀況開始迅速惡化。" },
+      { id: 200, en: "Determine", zh: "決定", pos: "v.", ex: "Your attitude determines your altitude.", ex_zh: "你的態度決定你的高度。" },
+      { id: 201, en: "Devote", zh: "致力於", pos: "v.", ex: "She devoted her life to helping the poor.", ex_zh: "她將一生奉獻給幫助窮人。" },
+      { id: 202, en: "Diagnose", zh: "診斷", pos: "v.", ex: "The doctor diagnosed him with diabetes.", ex_zh: "醫生診斷他患有糖尿病。" },
+      { id: 203, en: "Dictate", zh: "口述；命令", pos: "v.", ex: "The teacher dictated the words to the class.", ex_zh: "老師向全班口述這些單字。" },
+      { id: 204, en: "Diminish", zh: "減少", pos: "v.", ex: "The drug's side effects will diminish over time.", ex_zh: "藥物的副作用會隨著時間減少。" },
+      { id: 205, en: "Diplomatic", zh: "外交的；圓滑的", pos: "adj.", ex: "We need to find a diplomatic solution.", ex_zh: "我們需要找到一個外交解決方案。" },
+      { id: 206, en: "Disaster", zh: "災難", pos: "n.", ex: "The earthquake was a terrible disaster.", ex_zh: "這場地震是一場可怕的災難。" },
+      { id: 207, en: "Discard", zh: "丟棄", pos: "v.", ex: "Please discard your trash in the bin.", ex_zh: "請將垃圾丟進垃圾桶。" },
+      { id: 208, en: "Discipline", zh: "紀律", pos: "n.", ex: "Martial arts require strict discipline.", ex_zh: "武術需要嚴格的紀律。" },
+      { id: 209, en: "Disclose", zh: "揭露", pos: "v.", ex: "The company refused to disclose its financial details.", ex_zh: "該公司拒絕透露其財務細節。" },
+      { id: 210, en: "Discount", zh: "折扣", pos: "n.", ex: "They offer a 10% discount for students.", ex_zh: "他們為學生提供九折優惠。" },
+      { id: 211, en: "Discriminate", zh: "歧視", pos: "v.", ex: "It is illegal to discriminate against anyone based on race.", ex_zh: "基於種族歧視任何人是違法的。" },
+      { id: 212, en: "Dismiss", zh: "解僱；不予理會", pos: "v.", ex: "The boss dismissed him for constantly being late.", ex_zh: "老闆因為他經常遲到而解僱了他。" },
+      { id: 213, en: "Disorder", zh: "混亂；失調", pos: "n.", ex: "The room was in a state of complete disorder.", ex_zh: "房間處於完全混亂的狀態。" },
+      { id: 214, en: "Dispatch", zh: "派遣", pos: "v.", ex: "Two ambulances were dispatched to the scene.", ex_zh: "兩輛救護車被派往現場。" },
+      { id: 215, en: "Disperse", zh: "驅散；散開", pos: "v.", ex: "The police used tear gas to disperse the crowd.", ex_zh: "警察使用催淚瓦斯驅散人群。" },
+      { id: 216, en: "Display", zh: "展示", pos: "v.", ex: "The museum displays a collection of ancient coins.", ex_zh: "博物館展示了一批古代硬幣。" },
+      { id: 217, en: "Dispose", zh: "處理；丟棄", pos: "v.", ex: "How do you dispose of hazardous waste?", ex_zh: "你如何處理有害廢棄物？" },
+      { id: 218, en: "Dispute", zh: "爭論", pos: "n.", ex: "The union is in a dispute with management over pay.", ex_zh: "工會與管理層因薪資問題發生爭執。" },
+      { id: 219, en: "Dissolve", zh: "溶解；解散", pos: "v.", ex: "Sugar dissolves easily in hot water.", ex_zh: "糖在熱水中很容易溶解。" },
+      { id: 220, en: "Distinct", zh: "明顯的；不同的", pos: "adj.", ex: "There is a distinct difference between the two styles.", ex_zh: "這兩種風格之間有明顯的差異。" },
+      { id: 221, en: "Distinguish", zh: "區分", pos: "v.", ex: "It is sometimes difficult to distinguish twins.", ex_zh: "有時候很難區分雙胞胎。" },
+      { id: 222, en: "Distort", zh: "扭曲", pos: "v.", ex: "The media sometimes distorts the truth.", ex_zh: "媒體有時會扭曲事實。" },
+      { id: 223, en: "Distract", zh: "使分心", pos: "v.", ex: "Don't let the noise distract you from your work.", ex_zh: "別讓噪音讓你工作分心。" },
+      { id: 224, en: "Distribute", zh: "分配；分發", pos: "v.", ex: "The teacher distributed the test papers.", ex_zh: "老師發了考卷。" },
+      { id: 225, en: "District", zh: "區；行政區", pos: "n.", ex: "He lives in a quiet residential district.", ex_zh: "他住在一個安靜的住宅區。" },
+      { id: 226, en: "Disturb", zh: "打擾", pos: "v.", ex: "Please do not disturb me while I'm studying.", ex_zh: "我在讀書時請不要打擾我。" },
+      { id: 227, en: "Divert", zh: "轉移", pos: "v.", ex: "Traffic was diverted due to the accident.", ex_zh: "由於發生事故，交通被改道了。" },
+      { id: 228, en: "Document", zh: "文件", pos: "n.", ex: "Please sign this document at the bottom.", ex_zh: "請在這份文件的底部簽名。" },
+      { id: 229, en: "Domestic", zh: "國內的；家庭的", pos: "adj.", ex: "The airport handles both domestic and international flights.", ex_zh: "這座機場處理國內和國際航班。" },
+      { id: 230, en: "Dominant", zh: "佔優勢的；主導的", pos: "adj.", ex: "The company is a dominant player in the market.", ex_zh: "該公司在市場上佔據主導地位。" },
+      { id: 231, en: "Donate", zh: "捐贈", pos: "v.", ex: "Many people donate blood regularly.", ex_zh: "許多人定期捐血。" },
+      { id: 232, en: "Draft", zh: "草稿", pos: "n.", ex: "I have finished the first draft of my essay.", ex_zh: "我已經完成了論文的初稿。" },
+      { id: 233, en: "Drastic", zh: "激烈的；嚴厲的", pos: "adj.", ex: "The government needs to take drastic measures.", ex_zh: "政府需要採取嚴厲的措施。" },
+      { id: 234, en: "Duration", zh: "持續時間", pos: "n.", ex: "You should remain seated for the duration of the flight.", ex_zh: "在飛行期間您應該保持坐姿。" },
+      { id: 235, en: "Dynamic", zh: "動態的；充滿活力的", pos: "adj.", ex: "She has a very dynamic personality.", ex_zh: "她的個性非常充滿活力。" },
+      { id: 236, en: "Earnest", zh: "認真的；誠摯的", pos: "adj.", ex: "He made an earnest promise to help us.", ex_zh: "他做出了誠摯的承諾要幫助我們。" },
+      { id: 237, en: "Eccentric", zh: "古怪的", pos: "adj.", ex: "The old man is known for his eccentric behavior.", ex_zh: "這位老人以其古怪的行為而聞名。" },
+      { id: 238, en: "Eclipse", zh: "日食/月食；黯然失色", pos: "n.", ex: "We watched the solar eclipse through special glasses.", ex_zh: "我們透過特殊的眼鏡觀看日食。" },
+      { id: 239, en: "Economic", zh: "經濟的", pos: "adj.", ex: "The country is facing an economic crisis.", ex_zh: "這個國家正面臨經濟危機。" },
+      { id: 240, en: "Edible", zh: "可食用的", pos: "adj.", ex: "Not all mushrooms found in the wild are edible.", ex_zh: "並非所有在野外發現的蘑菇都是可食用的。" },
+      { id: 241, en: "Edit", zh: "編輯", pos: "v.", ex: "You need to edit your writing carefully before submitting.", ex_zh: "提交前你需要仔細編輯你的文章。" },
+      { id: 242, en: "Effect", zh: "影響；效果", pos: "n.", ex: "The medicine had an immediate effect on her headache.", ex_zh: "這藥對她的頭痛有立竿見影的效果。" },
+      { id: 243, en: "Efficiency", zh: "效率", pos: "n.", ex: "We need to improve the efficiency of the factory.", ex_zh: "我們需要提高工廠的效率。" },
+      { id: 244, en: "Eject", zh: "彈出；驅逐", pos: "v.", ex: "The pilot had to eject from the plane.", ex_zh: "飛行員不得不從飛機上彈射逃生。" },
+      { id: 245, en: "Elastic", zh: "有彈性的", pos: "adj.", ex: "Rubber is highly elastic.", ex_zh: "橡膠非常有彈性。" },
+      { id: 246, en: "Elegant", zh: "優雅的", pos: "adj.", ex: "She wore an elegant black dress to the party.", ex_zh: "她穿著一件優雅的黑色洋裝參加派對。" },
+      { id: 247, en: "Element", zh: "元素；要素", pos: "n.", ex: "Honesty is a key element of a good relationship.", ex_zh: "誠實是良好關係的關鍵要素。" },
+      { id: 248, en: "Elevate", zh: "提升；舉起", pos: "v.", ex: "Reading can elevate your mind.", ex_zh: "閱讀可以提升你的心智。" },
+      { id: 249, en: "Eliminate", zh: "消除；淘汰", pos: "v.", ex: "We must eliminate mistakes from the process.", ex_zh: "我們必須從流程中消除錯誤。" },
+      { id: 250, en: "Elite", zh: "菁英", pos: "n.", ex: "The military sent its elite troops.", ex_zh: "軍方派出了菁英部隊。" },
+      { id: 251, en: "Emerge", zh: "出現", pos: "v.", ex: "The sun emerged from behind the clouds.", ex_zh: "太陽從雲層後面露出來了。" },
+      { id: 252, en: "Emission", zh: "排放(物)", pos: "n.", ex: "The factory aims to reduce carbon emissions.", ex_zh: "工廠旨在減少碳排放。" },
+      { id: 253, en: "Emphasis", zh: "強調", pos: "n.", ex: "The school puts a strong emphasis on science.", ex_zh: "這所學校非常強調科學。" },
+      { id: 254, en: "Empirical", zh: "經驗主義的；實證的", pos: "adj.", ex: "Their claims are supported by empirical evidence.", ex_zh: "他們的主張得到了實證證據的支持。" },
+      { id: 255, en: "Enable", zh: "使能夠", pos: "v.", ex: "This password will enable you to access the system.", ex_zh: "這個密碼將使您能夠存取系統。" },
+      { id: 256, en: "Encounter", zh: "遭遇", pos: "v.", ex: "We encountered some difficulties along the way.", ex_zh: "我們在途中遇到了一些困難。" },
+      { id: 257, en: "Encourage", zh: "鼓勵", pos: "v.", ex: "My parents always encourage me to pursue my dreams.", ex_zh: "我的父母總是鼓勵我去追求夢想。" },
+      { id: 258, en: "Endeavor", zh: "努力", pos: "n.", ex: "We wish him success in all his future endeavors.", ex_zh: "我們祝他未來的各項努力都能成功。" },
+      { id: 259, en: "Endorse", zh: "背書；支持", pos: "v.", ex: "The famous athlete endorsed the new sports shoes.", ex_zh: "那位著名的運動員為新款運動鞋代言。" },
+      { id: 260, en: "Endure", zh: "忍受", pos: "v.", ex: "He had to endure a lot of pain after the accident.", ex_zh: "意外發生後他不得不忍受許多痛苦。" },
+      { id: 261, en: "Enforce", zh: "執行(法律)", pos: "v.", ex: "The police are strictly enforcing the speed limit.", ex_zh: "警察正在嚴格執行速限規定。" },
+      { id: 262, en: "Engage", zh: "參與；吸引", pos: "v.", ex: "The teacher tried to engage all students in the activity.", ex_zh: "老師試圖讓所有學生都參與這項活動。" },
+      { id: 263, en: "Enlarge", zh: "擴大", pos: "v.", ex: "We plan to enlarge the kitchen next year.", ex_zh: "我們計畫明年擴建廚房。" },
+      { id: 264, en: "Enormous", zh: "巨大的", pos: "adj.", ex: "He inherited an enormous amount of money.", ex_zh: "他繼承了一筆巨款。" },
+      { id: 265, en: "Ensure", zh: "確保", pos: "v.", ex: "Please ensure that all doors are locked.", ex_zh: "請確保所有的門都已上鎖。" },
+      { id: 266, en: "Enterprise", zh: "企業", pos: "n.", ex: "Building a new business is a challenging enterprise.", ex_zh: "建立一家新企業是一項具挑戰性的事業。" },
+      { id: 267, en: "Entertain", zh: "娛樂", pos: "v.", ex: "The clown entertained the children at the party.", ex_zh: "小丑在派對上逗孩子們開心。" },
+      { id: 268, en: "Enthusiastic", zh: "熱情的", pos: "adj.", ex: "She received an enthusiastic welcome from the crowd.", ex_zh: "她受到了人群熱情的歡迎。" },
+      { id: 269, en: "Entire", zh: "整個的", pos: "adj.", ex: "I read the entire book in one sitting.", ex_zh: "我一口氣讀完了整本書。" },
+      { id: 270, en: "Entitle", zh: "賦予權利", pos: "v.", ex: "This ticket entitles you to a free drink.", ex_zh: "這張票讓你享有免費飲料的權利。" },
+      { id: 271, en: "Entity", zh: "實體", pos: "n.", ex: "The two companies will operate as a single entity.", ex_zh: "這兩家公司將作為一個單一實體運作。" },
+      { id: 272, en: "Entrepreneur", zh: "企業家", pos: "n.", ex: "A successful entrepreneur takes calculated risks.", ex_zh: "成功的企業家會承擔經過計算的風險。" },
+      { id: 273, en: "Envelop", zh: "包圍", pos: "v.", ex: "The fog quickly enveloped the whole town.", ex_zh: "大霧很快包圍了整個城鎮。" },
+      { id: 274, en: "Epidemic", zh: "傳染病；流行", pos: "n.", ex: "The flu epidemic spread rapidly through the school.", ex_zh: "流感疫情在學校裡迅速蔓延。" },
+      { id: 275, en: "Episode", zh: "事件；(電視)一集", pos: "n.", ex: "I watched the final episode of the series last night.", ex_zh: "我昨晚看了這部影集的最後一集。" },
+      { id: 276, en: "Equation", zh: "方程式", pos: "n.", ex: "He easily solved the complex math equation.", ex_zh: "他輕鬆解開了複雜的數學方程式。" },
+      { id: 277, en: "Equip", zh: "裝備", pos: "v.", ex: "The laboratory is equipped with the latest technology.", ex_zh: "實驗室配備了最新的科技。" },
+      { id: 278, en: "Equivalent", zh: "相等的", pos: "adj.", ex: "Eight kilometers is roughly equivalent to five miles.", ex_zh: "八公里大約等於五英里。" },
+      { id: 279, en: "Era", zh: "時代", pos: "n.", ex: "We are living in the digital era.", ex_zh: "我們生活在數位時代。" },
+      { id: 280, en: "Erase", zh: "抹去；擦掉", pos: "v.", ex: "He erased the mistake from the whiteboard.", ex_zh: "他把白板上的錯誤擦掉了。" },
+      { id: 281, en: "Erect", zh: "建立；豎立", pos: "v.", ex: "They plan to erect a monument in the park.", ex_zh: "他們計畫在公園裡豎立一座紀念碑。" },
+      { id: 282, en: "Erupt", zh: "爆發", pos: "v.", ex: "The volcano erupted violently yesterday.", ex_zh: "那座火山昨天猛烈爆發了。" },
+      { id: 283, en: "Escalate", zh: "升級；擴大", pos: "v.", ex: "The argument quickly escalated into a fight.", ex_zh: "爭論很快升級成了打鬥。" },
+      { id: 284, en: "Essential", zh: "必要的", pos: "adj.", ex: "Water is essential for all living things.", ex_zh: "水對所有生物都是必不可少的。" },
+      { id: 285, en: "Establish", zh: "建立", pos: "v.", ex: "The company was established in 1990.", ex_zh: "這家公司成立於1990年。" },
+      { id: 286, en: "Estate", zh: "財產；地產", pos: "n.", ex: "He left his entire estate to his children.", ex_zh: "他把所有財產都留給了孩子們。" },
+      { id: 287, en: "Estimate", zh: "估計", pos: "v.", ex: "It is hard to estimate the total cost of the project.", ex_zh: "很難估計專案的總成本。" },
+      { id: 288, en: "Eternal", zh: "永恆的", pos: "adj.", ex: "Some people believe in eternal life.", ex_zh: "有些人相信永生。" },
+      { id: 289, en: "Evaluate", zh: "評估", pos: "v.", ex: "The teacher will evaluate your performance at the end of the term.", ex_zh: "老師將在期末評估你的表現。" },
+      { id: 290, en: "Evaporate", zh: "蒸發", pos: "v.", ex: "The water will evaporate if you boil it for too long.", ex_zh: "如果你把水煮太久，它就會蒸發。" },
+      { id: 291, en: "Eventual", zh: "最終的", pos: "adj.", ex: "Their hard work led to eventual success.", ex_zh: "他們的辛勤工作帶來了最終的成功。" },
+      { id: 292, en: "Evident", zh: "明顯的", pos: "adj.", ex: "It was evident that she was very upset.", ex_zh: "很明顯她非常難過。" },
+      { id: 293, en: "Evolution", zh: "演化", pos: "n.", ex: "The museum has an exhibition on human evolution.", ex_zh: "博物館有一個關於人類演化的展覽。" },
+      { id: 294, en: "Exaggerate", zh: "誇張", pos: "v.", ex: "Don't believe everything he says; he tends to exaggerate.", ex_zh: "別相信他說的每一句話；他往往會誇張。" },
+      { id: 295, en: "Exceed", zh: "超過", pos: "v.", ex: "The cost must not exceed the budget.", ex_zh: "成本不得超過預算。" },
+      { id: 296, en: "Exception", zh: "例外", pos: "n.", ex: "Everyone must attend the meeting without exception.", ex_zh: "每個人都必須參加會議，沒有例外。" },
+      { id: 297, en: "Excess", zh: "過量", pos: "n.", ex: "An excess of sugar is bad for your teeth.", ex_zh: "過量的糖對你的牙齒不好。" },
+      { id: 298, en: "Exchange", zh: "交換", pos: "v.", ex: "They exchanged gifts on Christmas Eve.", ex_zh: "他們在平安夜交換了禮物。" },
+      { id: 299, en: "Exclude", zh: "排除", pos: "v.", ex: "The price excludes tax and shipping.", ex_zh: "價格不包含稅和運費。" },
+      { id: 300, en: "Exclusive", zh: "獨有的；高檔的", pos: "adj.", ex: "He belongs to an exclusive golf club.", ex_zh: "他屬於一個高檔的高爾夫俱樂部。" }
+    ];
+
+    const DAILY_GOAL = 5;
+    
+    // 全局狀態變數
+    let appState = 'home';
+    let learningQueue = [];
+    let todayWords = [];
+    let learnedCount = 0;
+    let isFlipped = false;
+    let quizQuestions = [];
+    let currentQuizIndex = 0;
+    let quizScore = 0;
+    let selectedAnswer = null;
+    let historyData = [];
+    let currentUser = null;
+
+    // Firebase 初始化 (如果全域環境有設定，則使用環境設定；否則使用備用設定或捕捉錯誤)
+    let app, auth, db;
+    try {
+      const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+      app = initializeApp(firebaseConfig);
+      auth = getAuth(app);
+      db = getFirestore(app);
+    } catch (e) {
+      console.warn("Firebase not fully configured or missing config:", e);
+    }
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'html-vocab-app-id';
+
+    // 處理 Firebase 認證
+    if (auth) {
+      const initAuth = async () => {
+        try {
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(auth, __initial_auth_token);
+          } else {
+            await signInAnonymously(auth);
+          }
+        } catch (error) {
+          console.error("Auth error:", error);
+        }
+      };
+      initAuth();
+
+      onAuthStateChanged(auth, (user) => {
+        currentUser = user;
+        if (user) {
+          fetchHistory();
+        }
+      });
+    }
+
+    // 讀取歷史紀錄
+    function fetchHistory() {
+      if (!currentUser || !db) return;
+      const historyRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'wordHistory');
+      const q = query(historyRef);
+      
+      onSnapshot(q, (snapshot) => {
+        const records = [];
+        snapshot.forEach((doc) => {
+          records.push({ id: doc.id, ...doc.data() });
+        });
+        records.sort((a, b) => b.learnedTimes - a.learnedTimes);
+        historyData = records;
+        updateCloudStatus();
+        renderHistoryList();
+      }, (error) => {
+        console.error("Fetch history error:", error);
+      });
+    }
+
+    // 儲存至雲端
+    async function saveToHistory(word) {
+      if (!currentUser || !db) return;
+      try {
+        const wordRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'wordHistory', word.id.toString());
+        const docSnap = await getDoc(wordRef);
+        
+        if (docSnap.exists()) {
+          await setDoc(wordRef, {
+            ...docSnap.data(),
+            learnedTimes: docSnap.data().learnedTimes + 1,
+            lastLearned: new Date().toISOString()
+          });
+        } else {
+          await setDoc(wordRef, {
+            wordId: word.id,
+            en: word.en,
+            zh: word.zh,
+            learnedTimes: 1,
+            firstLearned: new Date().toISOString(),
+            lastLearned: new Date().toISOString()
+          });
+        }
+      } catch (error) {
+        console.error("Save history error:", error);
+      }
+    }
+
+    // 語音播放功能
+    window.playAudio = function(text) {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'en-US';
+        utterance.rate = 0.9;
+        window.speechSynthesis.speak(utterance);
+      }
+    };
+
+    // 取得隨機選項
+    function getRandomOptions(correctAnswer, allWords) {
+      const options = [correctAnswer];
+      const pool = allWords.filter(w => w.zh !== correctAnswer.zh);
+      const shuffledPool = [...pool].sort(() => 0.5 - Math.random());
+      options.push(...shuffledPool.slice(0, 3));
+      return options.sort(() => 0.5 - Math.random());
+    }
+
+    // 切換畫面
+    function switchScreen(screen) {
+      appState = screen;
+      document.querySelectorAll('main > div').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('main > div').forEach(el => el.classList.remove('flex'));
+      
+      const target = document.getElementById(`screen-${screen}`);
+      if (target) {
+        target.classList.remove('hidden');
+        target.classList.add('flex');
+      }
+      
+      // 更新頂部按鈕狀態
+      const quitBtn = document.getElementById('nav-quit-btn');
+      if (screen !== 'home' && screen !== 'summary' && screen !== 'history') {
+        quitBtn.classList.remove('hidden');
+      } else {
+        quitBtn.classList.add('hidden');
+      }
+    }
+
+    // 開始學習
+    function startLearning() {
+      const shuffled = [...WORD_DATABASE].sort(() => 0.5 - Math.random());
+      const selected = shuffled.slice(0, DAILY_GOAL);
+      todayWords = selected;
+      learningQueue = [...selected];
+      learnedCount = 0;
+      isFlipped = false;
+      
+      renderLearningScreen();
+      switchScreen('learning');
+    }
+
+    // 渲染學習畫面
+    function renderLearningScreen() {
+      if (learningQueue.length === 0) {
+        prepareQuiz(todayWords);
+        return;
+      }
+
+      const currentWord = learningQueue[0];
+      const total = learnedCount + learningQueue.length;
+      const progress = (learnedCount / total) * 100;
+
+      // 更新進度
+      document.getElementById('learning-progress-text').innerText = `${learnedCount} / ${total}`;
+      document.getElementById('learning-progress-bar').style.width = `${progress}%`;
+
+      // 更新單字內容
+      document.getElementById('fc-en').innerText = currentWord.en;
+      document.getElementById('fc-pos').innerText = currentWord.pos;
+      document.getElementById('fc-zh').innerText = currentWord.zh;
+      document.getElementById('fc-ex').innerText = `"${currentWord.ex}"`;
+      document.getElementById('fc-ex-zh').innerText = currentWord.ex_zh;
+
+      // 綁定音頻按鈕
+      document.getElementById('fc-audio-en').onclick = (e) => { e.stopPropagation(); playAudio(currentWord.en); };
+      document.getElementById('fc-audio-ex').onclick = (e) => { e.stopPropagation(); playAudio(currentWord.ex); };
+
+      // 設置翻轉狀態
+      setCardFlipped(false);
+    }
+
+    // 設定單字卡翻轉狀態
+    function setCardFlipped(flipped) {
+      isFlipped = flipped;
+      const card = document.getElementById('flashcard');
+      const front = document.getElementById('fc-front');
+      const back = document.getElementById('fc-back');
+      const actions = document.getElementById('learning-actions');
+
+      if (flipped) {
+        card.classList.remove('card-unflipped');
+        card.classList.add('card-flipped');
+        front.classList.add('hidden');
+        back.classList.remove('hidden');
+        actions.classList.remove('opacity-0', 'pointer-events-none');
+        actions.classList.add('opacity-100');
+      } else {
+        card.classList.add('card-unflipped');
+        card.classList.remove('card-flipped');
+        front.classList.remove('hidden');
+        back.classList.add('hidden');
+        actions.classList.add('opacity-0', 'pointer-events-none');
+        actions.classList.remove('opacity-100');
+      }
+    }
+
+    // 處理學習回饋
+    function handleWordFeedback(isKnown) {
+      const currentWord = learningQueue.shift(); // 移除第一個
+      if (isKnown) {
+        learnedCount++;
+      } else {
+        learningQueue.push(currentWord); // 不熟放回後面
+      }
+      renderLearningScreen();
+    }
+
+    // 準備測驗
+    function prepareQuiz(words) {
+      const questions = words.map(word => ({
+        word: word,
+        options: getRandomOptions(word, WORD_DATABASE)
+      }));
+      
+      quizQuestions = questions.sort(() => 0.5 - Math.random());
+      currentQuizIndex = 0;
+      quizScore = 0;
+      selectedAnswer = null;
+      
+      renderQuizScreen();
+      switchScreen('quiz');
+    }
+
+    // 渲染測驗畫面
+    function renderQuizScreen() {
+      const currentQ = quizQuestions[currentQuizIndex];
+      const progress = (currentQuizIndex / quizQuestions.length) * 100;
+
+      // 更新進度與題目
+      document.getElementById('quiz-progress-text').innerText = `${currentQuizIndex + 1} / ${quizQuestions.length}`;
+      document.getElementById('quiz-progress-bar').style.width = `${progress}%`;
+      document.getElementById('quiz-word-en').innerText = currentQ.word.en;
+      document.getElementById('quiz-audio').onclick = () => playAudio(currentQ.word.en);
+
+      // 生成選項
+      const optionsContainer = document.getElementById('quiz-options');
+      optionsContainer.innerHTML = '';
+
+      currentQ.options.forEach((option, idx) => {
+        const btn = document.createElement('button');
+        btn.className = "w-full text-left p-5 rounded-2xl text-lg font-medium transition-all duration-300 flex justify-between items-center bg-white border-2 border-gray-100 text-gray-700 hover:border-indigo-300 hover:bg-indigo-50 shadow-sm";
+        
+        const span = document.createElement('span');
+        span.innerText = option.zh;
+        btn.appendChild(span);
+
+        // 綁定點擊事件
+        btn.onclick = () => handleAnswerSelect(option, currentQ, btn);
+        optionsContainer.appendChild(btn);
+      });
+    }
+
+    // 處理答案選擇
+    function handleAnswerSelect(option, currentQ, selectedBtn) {
+      if (selectedAnswer !== null) return; // 鎖定作答
+      selectedAnswer = option;
+      
+      const isCorrect = option.id === currentQ.word.id;
+      const allBtns = document.getElementById('quiz-options').querySelectorAll('button');
+      
+      allBtns.forEach(btn => {
+        btn.disabled = true;
+        const textSpan = btn.querySelector('span');
+        const isThisBtnCorrect = currentQ.options.find(o => o.zh === textSpan.innerText).id === currentQ.word.id;
+        
+        if (btn === selectedBtn) {
+          if (isCorrect) {
+            btn.className = "w-full text-left p-5 rounded-2xl text-lg font-medium transition-all duration-300 flex justify-between items-center bg-green-50 border-2 border-green-500 text-green-700 font-bold shadow-md transform scale-[1.02]";
+            btn.innerHTML += '<i class="fa-solid fa-check text-green-500 text-xl"></i>';
+            quizScore++;
+            saveToHistory(currentQ.word);
+          } else {
+            btn.className = "w-full text-left p-5 rounded-2xl text-lg font-medium transition-all duration-300 flex justify-between items-center bg-red-50 border-2 border-red-400 text-red-700";
+            btn.innerHTML += '<i class="fa-solid fa-xmark text-red-500 text-xl"></i>';
+          }
+        } else {
+          if (isThisBtnCorrect && !isCorrect) {
+             // 標示出正確答案
+             btn.className = "w-full text-left p-5 rounded-2xl text-lg font-medium transition-all duration-300 flex justify-between items-center bg-green-50 border-2 border-green-500 text-green-700";
+             btn.innerHTML += '<i class="fa-solid fa-check text-green-500 text-xl"></i>';
+          } else {
+             btn.className = "w-full text-left p-5 rounded-2xl text-lg font-medium transition-all duration-300 flex justify-between items-center bg-gray-50 border-2 border-gray-100 text-gray-400 opacity-50";
+          }
+        }
+      });
+
+      // 延遲跳轉
+      setTimeout(() => {
+        if (currentQuizIndex < quizQuestions.length - 1) {
+          currentQuizIndex++;
+          selectedAnswer = null;
+          renderQuizScreen();
+        } else {
+          renderSummaryScreen();
+          switchScreen('summary');
+        }
+      }, 1500);
+    }
+
+    // 渲染總結畫面
+    function renderSummaryScreen() {
+      document.getElementById('summary-total').innerText = todayWords.length;
+      document.getElementById('summary-score').innerText = `${quizScore}/${quizQuestions.length}`;
+      
+      const starsContainer = document.getElementById('summary-stars');
+      starsContainer.innerHTML = '';
+      const ratio = quizScore / quizQuestions.length;
+      let activeStars = ratio === 1 ? 3 : (ratio >= 0.6 ? 2 : 1);
+      
+      for(let i=1; i<=3; i++) {
+        const star = document.createElement('i');
+        star.className = `fa-solid fa-star ${i <= activeStars ? 'text-yellow-400' : 'text-gray-200'}`;
+        starsContainer.appendChild(star);
+      }
+
+      const msg = document.getElementById('summary-msg');
+      msg.innerText = ratio === 1 ? "太棒了！滿分過關！紀錄已儲存。" : "繼續保持，明天再接再厲！";
+    }
+
+    // 渲染歷史紀錄清單
+    function renderHistoryList() {
+      document.getElementById('history-total-count').innerText = historyData.length;
+      const listContainer = document.getElementById('history-list');
+      listContainer.innerHTML = '';
+
+      if (historyData.length === 0) {
+        listContainer.innerHTML = `
+          <div class="text-center py-12 text-gray-400 flex flex-col items-center">
+            <i class="fa-solid fa-clock-rotate-left text-5xl mb-3 opacity-50"></i>
+            <p>目前還沒有紀錄喔</p>
+            <p class="text-sm mt-1">快去完成今日的學習吧！</p>
+          </div>
+        `;
+        return;
+      }
+
+      historyData.forEach(record => {
+        const item = document.createElement('div');
+        item.className = "flex justify-between items-center p-3 hover:bg-blue-50 rounded-xl transition-colors group cursor-pointer";
+        item.onclick = () => window.playAudio(record.en); // 點擊整列發音
+        
+        item.innerHTML = `
+          <div class="flex flex-col">
+            <div class="flex items-center space-x-2">
+              <span class="font-bold text-gray-800 text-lg">${record.en}</span>
+              <button class="text-gray-300 group-hover:text-blue-500 transition-colors">
+                <i class="fa-solid fa-volume-high text-sm"></i>
+              </button>
+            </div>
+            <span class="text-sm text-gray-500">${record.zh}</span>
+          </div>
+          <div class="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-700 font-bold rounded-full text-sm">
+            ${record.learnedTimes}
+          </div>
+        `;
+        listContainer.appendChild(item);
+      });
+    }
+
+    // 更新雲端狀態文字
+    function updateCloudStatus() {
+      const statusDiv = document.getElementById('cloud-status');
+      if (currentUser) {
+        statusDiv.innerText = `已連線雲端存檔 (${historyData.length} 字)`;
+      }
+    }
+
+    // DOM 事件綁定
+    document.addEventListener('DOMContentLoaded', () => {
+      // 首頁數字初始化
+      document.getElementById('home-daily-goal').innerText = DAILY_GOAL;
+      document.getElementById('home-daily-goal-badge').innerText = DAILY_GOAL;
+
+      // 按鈕事件
+      document.getElementById('btn-start-learning').addEventListener('click', startLearning);
+      document.getElementById('btn-view-history').addEventListener('click', () => switchScreen('history'));
+      document.getElementById('btn-flip').addEventListener('click', () => setCardFlipped(true));
+      document.getElementById('btn-feedback-no').addEventListener('click', () => handleWordFeedback(false));
+      document.getElementById('btn-feedback-yes').addEventListener('click', () => handleWordFeedback(true));
+      document.getElementById('btn-sum-history').addEventListener('click', () => switchScreen('history'));
+      document.getElementById('btn-sum-home').addEventListener('click', () => switchScreen('home'));
+      document.getElementById('btn-hist-back').addEventListener('click', () => switchScreen('home'));
+      
+      // 頂部導覽列點擊
+      document.getElementById('logo-btn').addEventListener('click', () => {
+        if(appState !== 'home') switchScreen('home');
+      });
+
+      // 中斷離開 Modal 處理
+      const quitBtn = document.getElementById('nav-quit-btn');
+      const modal = document.getElementById('modal-quit');
+      const cancelBtn = document.getElementById('btn-modal-cancel');
+      const confirmBtn = document.getElementById('btn-modal-confirm');
+
+      quitBtn.addEventListener('click', () => {
+        modal.classList.remove('hidden');
+      });
+      
+      cancelBtn.addEventListener('click', () => {
+        modal.classList.add('hidden');
+      });
+
+      confirmBtn.addEventListener('click', () => {
+        modal.classList.add('hidden');
+        switchScreen('home');
+      });
+    });
+
+  </script>
+</body>
+</html>
