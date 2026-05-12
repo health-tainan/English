@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>每日記英文單字</title>
+  <!-- 引入 Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入 FontAwesome 圖示 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- 自訂動畫與樣式 -->
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+    .animate-fade-in-up { animation: fadeInUp 0.3s ease-out forwards; }
+    
+    /* 單字卡翻轉效果輔助 */
+    .card-transition { transition: all 0.5s ease; }
+    .card-unflipped { transform: scale(0.98); box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+    .card-flipped { transform: scale(1); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); }
+    
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    /* 隱藏滾動條但保持可滾動 */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col items-center">
+
+  <!-- 頂部導覽列 -->
+  <header class="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm w-full">
+    <div class="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
+      <div id="logo-btn" class="flex items-center text-blue-600 font-bold text-lg cursor-pointer">
+        <i class="fa-solid fa-book-open mr-2"></i> VocabDaily
+      </div>
+      <button id="nav-quit-btn" class="hidden text-gray-400 hover:text-gray-600 transition-colors text-sm font-medium bg-gray-100 px-3 py-1.5 rounded-full">
+        中斷離開
+      </button>
+    </div>
+  </header>
+
+  <!-- 主要內容區 -->
+  <main class="w-full max-w-md mx-auto h-[calc(100vh-64px)] overflow-y-auto no-scrollbar relative">
+    
+    <!-- 首頁畫面 -->
+    <div id="screen-home" class="flex flex-col items-center justify-center h-full space-y-6 p-6 text-center animate-fade-in">
+      <div class="bg-blue-100 p-6 rounded-full shadow-inner mb-2">
+        <i class="fa-solid fa-brain text-5xl text-blue-600"></i>
+      </div>
+      <div>
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">每日記英文單字</h1>
+        <p class="text-gray-500">每天 <span id="home-daily-goal">5</span> 個單字，積少成多，提升英語力！</p>
+      </div>
+      
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 w-full">
+        <div class="flex justify-between items-center mb-6">
+          <span class="text-gray-600 font-medium">今日任務目標</span>
+          <span class="bg-blue-100 text-blue-700 py-1 px-3 rounded-full text-sm font-bold"><span id="home-daily-goal-badge">5</span> 字</span>
+        </div>
+        
+        <div class="space-y-4">
+          <button id="btn-start-learning" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl flex items-center justify-center transition-all transform hover:scale-[1.02] active:scale-95 shadow-md">
+            <i class="fa-solid fa-book-open mr-2"></i> 開始今日學習 <i class="fa-solid fa-arrow-right ml-auto"></i>
+          </button>
+          
+          <button id="btn-view-history" class="w-full bg-white hover:bg-gray-50 text-gray-700 border-2 border-gray-200 font-bold py-4 px-6 rounded-xl flex items-center justify-center transition-all transform hover:scale-[1.02] active:scale-95">
+            <i class="fa-solid fa-clock-rotate-left mr-2 text-gray-500"></i> 查看歷史紀錄 <i class="fa-solid fa-chevron-right ml-auto text-gray-400"></i>
+          </button>
+        </div>
+      </div>
+      
+      <div id="cloud-status" class="text-xs text-gray-400 mt-4">正在連線雲端服務...</div>
+    </div>
+
+    <!-- 學習單字畫面 -->
+    <div id="screen-learning" class="hidden flex-col h-full p-4 animate-fade-in">
+      <div class="mb-6">
+        <div class="flex justify-between text-sm text-gray-500 mb-2 font-medium">
+          <span>學習進度</span>
+          <span id="learning-progress-text">0 / 5</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2.5">
+          <div id="learning-progress-bar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <div class="flex-1 flex flex-col items-center justify-center min-h-[400px]">
+        <div id="flashcard" class="w-full bg-white rounded-3xl border border-gray-100 p-8 flex flex-col items-center text-center card-transition card-unflipped">
+          <div class="flex items-center justify-center space-x-4 mb-2">
+            <h2 id="fc-en" class="text-4xl font-extrabold text-gray-800">Word</h2>
+            <button id="fc-audio-en" class="p-3 bg-gray-50 rounded-full hover:bg-blue-50 text-gray-500 hover:text-blue-600 transition-colors">
+              <i class="fa-solid fa-volume-high text-xl"></i>
+            </button>
+          </div>
+          
+          <!-- 未翻轉狀態 -->
+          <div id="fc-front" class="mt-12 flex flex-col items-center w-full">
+            <button id="btn-flip" class="bg-blue-50 text-blue-600 font-semibold py-3 px-8 rounded-full hover:bg-blue-100 transition-colors flex items-center">
+              <i class="fa-solid fa-book-open mr-2"></i> 顯示字義與例句
+            </button>
+          </div>
+
+          <!-- 已翻轉狀態 -->
+          <div id="fc-back" class="hidden mt-6 w-full animate-fade-in-up space-y-6">
+            <div class="bg-blue-50/50 p-4 rounded-xl flex items-center justify-center">
+              <span id="fc-pos" class="text-blue-600 font-bold mr-3 text-lg bg-white px-2 py-1 rounded shadow-sm">pos.</span>
+              <span id="fc-zh" class="text-2xl font-bold text-gray-800">中文意思</span>
+            </div>
+            <div class="text-left border-l-4 border-blue-300 bg-blue-50/30 p-4 rounded-r-xl">
+              <p id="fc-ex" class="text-gray-700 italic text-lg mb-2">"Example sentence."</p>
+              <button id="fc-audio-ex" class="text-sm font-semibold text-blue-500 hover:text-blue-700 flex items-center">
+                <i class="fa-solid fa-volume-high mr-1"></i> 聆聽整句發音
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="learning-actions" class="mt-8 grid grid-cols-2 gap-4 transition-opacity duration-300 opacity-0 pointer-events-none">
+        <button id="btn-feedback-no" class="flex flex-col items-center justify-center py-4 rounded-2xl bg-red-50 text-red-600 hover:bg-red-100 font-bold border border-red-100 transition-colors shadow-sm">
+          <i class="fa-solid fa-xmark text-3xl mb-1"></i> 還不熟
+        </button>
+        <button id="btn-feedback-yes" class="flex flex-col items-center justify-center py-4 rounded-2xl bg-green-50 text-green-600 hover:bg-green-100 font-bold border border-green-100 transition-colors shadow-sm">
+          <i class="fa-solid fa-check text-3xl mb-1"></i> 記住了
+        </button>
+      </div>
+    </div>
+
+    <!-- 測驗畫面 -->
+    <div id="screen-quiz" class="hidden flex-col h-full p-4 animate-fade-in">
+      <div class="mb-8">
+        <div class="flex justify-between text-sm text-gray-500 mb-2 font-medium">
+          <span>隨堂測驗</span>
+          <span id="quiz-progress-text">1 / 5</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2">
+          <div id="quiz-progress-bar" class="bg-indigo-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <div class="text-center mb-10">
+        <h3 class="text-sm text-gray-500 uppercase tracking-widest font-semibold mb-2">請選出正確的中文意思</h3>
+        <div class="flex items-center justify-center space-x-3 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+          <h2 id="quiz-word-en" class="text-4xl font-extrabold text-gray-800">Word</h2>
+          <button id="quiz-audio" class="p-2 text-gray-400 hover:text-indigo-500 transition-colors bg-gray-50 rounded-full">
+            <i class="fa-solid fa-volume-high text-xl"></i>
+          </button>
+        </div>
+      </div>
+
+      <div id="quiz-options" class="space-y-4">
+        <!-- 選項由 JS 動態生成 -->
+      </div>
+    </div>
+
+    <!-- 總結畫面 -->
+    <div id="screen-summary" class="hidden flex-col items-center justify-center h-full p-6 text-center animate-fade-in">
+      <div class="relative mb-8">
+        <div class="absolute inset-0 bg-yellow-200 rounded-full blur-2xl opacity-50 animate-pulse"></div>
+        <div class="relative bg-white p-6 rounded-full shadow-xl">
+          <i class="fa-solid fa-trophy text-6xl text-yellow-500"></i>
+        </div>
+      </div>
+      
+      <h2 class="text-3xl font-extrabold text-gray-800 mb-4">今日任務完成！</h2>
+      
+      <div class="bg-white rounded-3xl shadow-sm border border-gray-100 w-full p-6 mb-8">
+        <div class="grid grid-cols-2 gap-4 divide-x border-b pb-4 mb-4">
+          <div>
+            <p class="text-gray-500 text-sm mb-1">學習單字數</p>
+            <p id="summary-total" class="text-3xl font-bold text-blue-600">5</p>
+          </div>
+          <div>
+            <p class="text-gray-500 text-sm mb-1">測驗得分</p>
+            <p id="summary-score" class="text-3xl font-bold text-indigo-600">5/5</p>
+          </div>
+        </div>
+        
+        <div id="summary-stars" class="flex justify-center text-gray-200 space-x-1 text-3xl">
+          <i class="fa-solid fa-star"></i>
+          <i class="fa-solid fa-star"></i>
+          <i class="fa-solid fa-star"></i>
+        </div>
+        <p id="summary-msg" class="text-gray-600 mt-4 font-medium">太棒了！滿分過關！紀錄已儲存。</p>
+      </div>
+
+      <div class="space-y-3 w-full">
+        <button id="btn-sum-history" class="bg-white text-gray-700 border border-gray-200 font-bold py-3 px-8 rounded-xl w-full hover:bg-gray-50 transition-colors flex items-center justify-center">
+          <i class="fa-solid fa-clock-rotate-left mr-2"></i> 查看學習紀錄
+        </button>
+        <button id="btn-sum-home" class="bg-gray-900 text-white font-bold py-4 px-8 rounded-xl w-full hover:bg-gray-800 transition-colors flex items-center justify-center shadow-lg">
+          <i class="fa-solid fa-rotate-right mr-2"></i> 回到首頁
+        </button>
+      </div>
+    </div>
+
+    <!-- 歷史紀錄畫面 -->
+    <div id="screen-history" class="hidden flex-col h-full p-4 animate-fade-in">
+      <div class="flex items-center mb-6">
+        <button id="btn-hist-back" class="p-2 mr-3 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors flex items-center justify-center w-10 h-10">
+          <i class="fa-solid fa-arrow-left text-gray-700"></i>
+        </button>
+        <h2 class="text-2xl font-bold text-gray-800">學習歷史紀錄</h2>
+      </div>
+
+      <div class="bg-gradient-to-r from-indigo-500 to-blue-500 rounded-2xl p-6 text-white mb-6 shadow-md">
+        <div class="flex items-center space-x-4">
+          <div class="bg-white/20 p-3 rounded-full flex items-center justify-center w-14 h-14">
+            <i class="fa-solid fa-database text-2xl"></i>
+          </div>
+          <div>
+            <p class="text-blue-100 text-sm font-medium">總計學過單字</p>
+            <p id="history-total-count" class="text-3xl font-extrabold">0</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col min-h-[300px]">
+        <div class="p-4 border-b border-gray-100 bg-gray-50 flex justify-between text-sm font-medium text-gray-500">
+          <span>單字</span>
+          <span>答對次數</span>
+        </div>
+        
+        <div id="history-list" class="flex-1 overflow-y-auto p-2 space-y-2">
+          <!-- 歷史紀錄由 JS 動態生成 -->
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 自訂確認中斷彈窗 -->
+  <div id="modal-quit" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center animate-fade-in p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl transform transition-all">
+      <div class="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 text-red-600 mb-4 mx-auto">
+        <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+      </div>
+      <h3 class="text-xl font-bold text-center text-gray-800 mb-2">確定要中斷學習嗎？</h3>
+      <p class="text-center text-gray-500 mb-6">目前的學習進度將不會被保留。</p>
+      <div class="flex space-x-3">
+        <button id="btn-modal-cancel" class="flex-1 py-3 rounded-xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition-colors">取消</button>
+        <button id="btn-modal-confirm" class="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-200">確定中斷</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    // 引入 Firebase SDK (CDN ESM 模組)
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+    import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+    // 單字資料庫 (150 個高頻單字)
+    const WORD_DATABASE = [
+      { id: 1, en: "Ubiquitous", zh: "無所不在的", pos: "adj.", ex: "Smartphones have become ubiquitous in our daily lives." },
+      { id: 2, en: "Ephemeral", zh: "短暫的", pos: "adj.", ex: "Fame in the music industry can be ephemeral." },
+      { id: 3, en: "Procrastinate", zh: "拖延", pos: "v.", ex: "I usually procrastinate when I have a difficult task." },
+      { id: 4, en: "Eloquent", zh: "雄辯的；有口才的", pos: "adj.", ex: "She gave an eloquent speech at the graduation ceremony." },
+      { id: 5, en: "Resilient", zh: "有韌性的；適應力強的", pos: "adj.", ex: "Children are often more resilient than adults." },
+      { id: 6, en: "Pragmatic", zh: "務實的", pos: "adj.", ex: "We need to take a pragmatic approach to solving this problem." },
+      { id: 7, en: "Alleviate", zh: "減輕；緩解", pos: "v.", ex: "The medicine helped alleviate her back pain." },
+      { id: 8, en: "Nostalgia", zh: "懷舊之情", pos: "n.", ex: "Hearing that old song brought back a wave of nostalgia." },
+      { id: 9, en: "Lucrative", zh: "賺錢的；有利可圖的", pos: "adj.", ex: "He gave up a lucrative career in law to teach." },
+      { id: 10, en: "Inevitable", zh: "不可避免的", pos: "adj.", ex: "With the changing weather, a delay was inevitable." },
+      { id: 11, en: "Meticulous", zh: "一絲不苟的；精確的", pos: "adj.", ex: "He is meticulous about his work." },
+      { id: 12, en: "Accommodate", zh: "容納；提供住宿", pos: "v.", ex: "The hotel can accommodate up to 500 guests." },
+      { id: 13, en: "Ambiguous", zh: "模稜兩可的", pos: "adj.", ex: "His reply to my question was somewhat ambiguous." },
+      { id: 14, en: "Anomaly", zh: "異常；反常事物", pos: "n.", ex: "There is an anomaly in your blood test results." },
+      { id: 15, en: "Apathy", zh: "冷漠；無興趣", pos: "n.", ex: "There is a growing apathy among voters towards politics." },
+      { id: 16, en: "Baffle", zh: "使困惑", pos: "v.", ex: "The unexpected behavior of the machine completely baffled the engineers." },
+      { id: 17, en: "Candid", zh: "坦率的", pos: "adj.", ex: "Let me be quite candid with you: your work is not good enough." },
+      { id: 18, en: "Catalyst", zh: "催化劑；促使變化的人", pos: "n.", ex: "The protests became a catalyst for political change." },
+      { id: 19, en: "Complacent", zh: "自滿的", pos: "adj.", ex: "We cannot afford to become complacent about our success." },
+      { id: 20, en: "Consensus", zh: "共識", pos: "n.", ex: "They haven't reached a consensus on the new policy yet." },
+      { id: 21, en: "Contradict", zh: "反駁；與...矛盾", pos: "v.", ex: "The witness's statement contradicts the evidence." },
+      { id: 22, en: "Diligent", zh: "勤奮的", pos: "adj.", ex: "He is a diligent student who always finishes his homework." },
+      { id: 23, en: "Diverse", zh: "多樣的", pos: "adj.", ex: "New York is a very culturally diverse city." },
+      { id: 24, en: "Elaborate", zh: "詳細說明", pos: "v.", ex: "Could you elaborate on that idea?" },
+      { id: 25, en: "Empathy", zh: "同理心", pos: "n.", ex: "A doctor needs to have empathy for patients." },
+      { id: 26, en: "Enhance", zh: "提升；增加", pos: "v.", ex: "Adding garlic will enhance the flavor of the dish." },
+      { id: 27, en: "Evoke", zh: "喚起（記憶或情感）", pos: "v.", ex: "The smell of chalk always evokes memories of my school days." },
+      { id: 28, en: "Fascinate", zh: "深深吸引；迷住", pos: "v.", ex: "Space exploration has always fascinated me." },
+      { id: 29, en: "Fluctuate", zh: "波動；變動", pos: "v.", ex: "Vegetable prices fluctuate according to the season." },
+      { id: 30, en: "Genuine", zh: "真正的；真誠的", pos: "adj.", ex: "He shows a genuine interest in helping others." },
+      { id: 31, en: "Hierarchy", zh: "階層；等級制度", pos: "n.", ex: "The corporate hierarchy determines who makes the decisions." },
+      { id: 32, en: "Hypothesis", zh: "假設", pos: "n.", ex: "We conducted experiments to test our hypothesis." },
+      { id: 33, en: "Implement", zh: "實施；執行", pos: "v.", ex: "The government promised to implement the new law by next year." },
+      { id: 34, en: "Incentive", zh: "誘因；刺激", pos: "n.", ex: "Bonus payments provide an incentive to work harder." },
+      { id: 35, en: "Innovate", zh: "創新", pos: "v.", ex: "Companies must innovate to stay competitive." },
+      { id: 36, en: "Interpret", zh: "解釋；理解", pos: "v.", ex: "How do you interpret these survey results?" },
+      { id: 37, en: "Intuition", zh: "直覺", pos: "n.", ex: "I trusted my intuition and chose the left path." },
+      { id: 38, en: "Manipulate", zh: "操縱", pos: "v.", ex: "She knows how to manipulate public opinion." },
+      { id: 39, en: "Mundane", zh: "平凡的；單調的", pos: "adj.", ex: "Washing dishes is a mundane but necessary chore." },
+      { id: 40, en: "Obscure", zh: "無名的；模糊的", pos: "adj.", ex: "The details of his early life remain obscure." },
+      { id: 41, en: "Paradigm", zh: "典範；範例", pos: "n.", ex: "His research created a new paradigm in computer science." },
+      { id: 42, en: "Perceive", zh: "察覺；認為", pos: "v.", ex: "I perceived a slight change in his tone of voice." },
+      { id: 43, en: "Profound", zh: "深遠的；深刻的", pos: "adj.", ex: "The invention of the internet had a profound impact on society." },
+      { id: 44, en: "Provoke", zh: "激怒；引起", pos: "v.", ex: "His careless words provoked a strong reaction." },
+      { id: 45, en: "Reconcile", zh: "使和解；調和", pos: "v.", ex: "It is difficult to reconcile his words with his actions." },
+      { id: 46, en: "Retain", zh: "保留；保持", pos: "v.", ex: "You should retain your receipts for tax purposes." },
+      { id: 47, en: "Scrutinize", zh: "仔細檢查", pos: "v.", ex: "The committee will scrutinize every detail of the contract." },
+      { id: 48, en: "Skeptical", zh: "懷疑的", pos: "adj.", ex: "Many people are skeptical about the politician's promises." },
+      { id: 49, en: "Spontaneous", zh: "自發的；非事先安排的", pos: "adj.", ex: "The crowd gave a spontaneous cheer." },
+      { id: 50, en: "Stimulate", zh: "刺激；激勵", pos: "v.", ex: "Coffee can stimulate your nervous system." },
+      { id: 51, en: "Tangible", zh: "有形的；實質的", pos: "adj.", ex: "We need tangible evidence to prove his guilt." },
+      { id: 52, en: "Tedious", zh: "單調乏味的", pos: "adj.", ex: "Data entry can be a very tedious task." },
+      { id: 53, en: "Thrive", zh: "繁榮；茁壯成長", pos: "v.", ex: "Plants thrive in sunlight and rich soil." },
+      { id: 54, en: "Transparent", zh: "透明的；公開誠實的", pos: "adj.", ex: "The company's financial operations need to be transparent." },
+      { id: 55, en: "Trigger", zh: "觸發；引起", pos: "v.", ex: "Certain foods can trigger an allergic reaction." },
+      { id: 56, en: "Unanimous", zh: "全體一致的", pos: "adj.", ex: "The board made a unanimous decision to promote him." },
+      { id: 57, en: "Valid", zh: "有效的；合理的", pos: "adj.", ex: "You must present a valid passport to travel." },
+      { id: 58, en: "Vulnerable", zh: "易受傷害的；脆弱的", pos: "adj.", ex: "Elderly people are more vulnerable to the flu." },
+      { id: 59, en: "Yield", zh: "產生；屈服", pos: "v.", ex: "The apple tree yielded a rich harvest this year." },
+      { id: 60, en: "Zealous", zh: "熱情的；狂熱的", pos: "adj.", ex: "He is a zealous supporter of environmental protection." },
+      { id: 61, en: "Abandon", zh: "放棄", pos: "v.", ex: "They had to abandon the sinking ship." },
+      { id: 62, en: "Abundant", zh: "豐富的", pos: "adj.", ex: "There is an abundant supply of food." },
+      { id: 63, en: "Accelerate", zh: "加速", pos: "v.", ex: "The car accelerated smoothly." },
+      { id: 64, en: "Accessible", zh: "可接近的", pos: "adj.", ex: "The building is accessible by wheelchair." },
+      { id: 65, en: "Acclaim", zh: "稱讚", pos: "n.", ex: "His new novel received critical acclaim." },
+      { id: 66, en: "Accumulate", zh: "累積", pos: "v.", ex: "Dust had accumulated on the old furniture." },
+      { id: 67, en: "Accurate", zh: "準確的", pos: "adj.", ex: "The weather forecast was incredibly accurate." },
+      { id: 68, en: "Acquire", zh: "獲得", pos: "v.", ex: "She acquired a deep knowledge of the subject." },
+      { id: 69, en: "Adapt", zh: "適應", pos: "v.", ex: "It took time to adapt to the new environment." },
+      { id: 70, en: "Adequate", zh: "足夠的", pos: "adj.", ex: "The room is small but adequate for my needs." },
+      { id: 71, en: "Adjacent", zh: "相鄰的", pos: "adj.", ex: "The school is adjacent to the park." },
+      { id: 72, en: "Advocate", zh: "提倡", pos: "v.", ex: "He advocates for environmental protection." },
+      { id: 73, en: "Aesthetic", zh: "美學的", pos: "adj.", ex: "The new building has little aesthetic appeal." },
+      { id: 74, en: "Aggregate", zh: "總計", pos: "n.", ex: "The aggregate number of visitors was huge." },
+      { id: 75, en: "Allocate", zh: "分配", pos: "v.", ex: "We need to allocate more funds to education." },
+      { id: 76, en: "Alter", zh: "改變", pos: "v.", ex: "We had to alter our plans due to the weather." },
+      { id: 77, en: "Alternative", zh: "替代方案", pos: "n.", ex: "We have no alternative but to wait." },
+      { id: 78, en: "Amateur", zh: "業餘的", pos: "adj.", ex: "He is an amateur photographer." },
+      { id: 79, en: "Ambitious", zh: "有野心的", pos: "adj.", ex: "She is an ambitious young lawyer." },
+      { id: 80, en: "Amend", zh: "修正", pos: "v.", ex: "The contract was amended last week." },
+      { id: 81, en: "Ample", zh: "充足的", pos: "adj.", ex: "There is ample parking space behind the hotel." },
+      { id: 82, en: "Anticipate", zh: "預期", pos: "v.", ex: "We don't anticipate any major problems." },
+      { id: 83, en: "Apparent", zh: "明顯的", pos: "adj.", ex: "It was apparent that he was lying." },
+      { id: 84, en: "Appeal", zh: "吸引；呼籲", pos: "v.", ex: "The police appealed to the public for information." },
+      { id: 85, en: "Appreciate", zh: "欣賞；感激", pos: "v.", ex: "I really appreciate your help." },
+      { id: 86, en: "Approach", zh: "接近；方法", pos: "n.", ex: "We need a new approach to the problem." },
+      { id: 87, en: "Appropriate", zh: "適當的", pos: "adj.", ex: "Is this dress appropriate for a wedding?" },
+      { id: 88, en: "Arbitrary", zh: "任意的", pos: "adj.", ex: "The choice of players seemed completely arbitrary." },
+      { id: 89, en: "Assess", zh: "評估", pos: "v.", ex: "The value of the business was assessed at $1 million." },
+      { id: 90, en: "Assign", zh: "指派", pos: "v.", ex: "The teacher assigned a lot of homework." },
+      { id: 91, en: "Assume", zh: "假設", pos: "v.", ex: "I assume you already know the news." },
+      { id: 92, en: "Astonish", zh: "使驚訝", pos: "v.", ex: "Her performance astonished the audience." },
+      { id: 93, en: "Atmosphere", zh: "氣氛", pos: "n.", ex: "The hotel has a very relaxing atmosphere." },
+      { id: 94, en: "Attach", zh: "附加", pos: "v.", ex: "Please attach a recent photograph to your form." },
+      { id: 95, en: "Attain", zh: "達到", pos: "v.", ex: "He has attained the highest grade in his exams." },
+      { id: 96, en: "Attribute", zh: "歸因於", pos: "v.", ex: "He attributed his success to hard work." },
+      { id: 97, en: "Authentic", zh: "真實的", pos: "adj.", ex: "The restaurant serves authentic Italian food." },
+      { id: 98, en: "Available", zh: "可用的", pos: "adj.", ex: "This information is available on the internet." },
+      { id: 99, en: "Awkward", zh: "尷尬的", pos: "adj.", ex: "There was an awkward silence in the room." },
+      { id: 100, en: "Barrier", zh: "障礙", pos: "n.", ex: "Language can be a barrier to communication." },
+      { id: 101, en: "Benefit", zh: "好處", pos: "n.", ex: "Exercise brings many benefits to your health." },
+      { id: 102, en: "Bias", zh: "偏見", pos: "n.", ex: "The news report was full of political bias." },
+      { id: 103, en: "Brief", zh: "簡短的", pos: "adj.", ex: "Let's keep this meeting brief." },
+      { id: 104, en: "Brilliant", zh: "聰穎的", pos: "adj.", ex: "She has a brilliant mind." },
+      { id: 105, en: "Broadcast", zh: "廣播", pos: "v.", ex: "The tennis match will be broadcast live." },
+      { id: 106, en: "Budget", zh: "預算", pos: "n.", ex: "We have a very tight budget for this project." },
+      { id: 107, en: "Calculate", zh: "計算", pos: "v.", ex: "Please calculate the total cost." },
+      { id: 108, en: "Campaign", zh: "活動", pos: "n.", ex: "The advertising campaign was a huge success." },
+      { id: 109, en: "Capacity", zh: "容量；能力", pos: "n.", ex: "The theater has a seating capacity of 500." },
+      { id: 110, en: "Capture", zh: "捕捉", pos: "v.", ex: "The photographer captured the beautiful sunset." },
+      { id: 111, en: "Category", zh: "類別", pos: "n.", ex: "You can browse the books by category." },
+      { id: 112, en: "Cease", zh: "停止", pos: "v.", ex: "The factory ceased operations last year." },
+      { id: 113, en: "Challenge", zh: "挑戰", pos: "n.", ex: "Finding a solution will be a big challenge." },
+      { id: 114, en: "Characteristic", zh: "特徵", pos: "n.", ex: "Kindness is one of his best characteristics." },
+      { id: 115, en: "Clarify", zh: "澄清", pos: "v.", ex: "Could you clarify the first point you made?" },
+      { id: 116, en: "Coincide", zh: "巧合", pos: "v.", ex: "My birthday coincides with the holiday." },
+      { id: 117, en: "Collapse", zh: "倒塌", pos: "v.", ex: "The roof collapsed under the weight of the snow." },
+      { id: 118, en: "Colleague", zh: "同事", pos: "n.", ex: "I am having dinner with a colleague tonight." },
+      { id: 119, en: "Commence", zh: "開始", pos: "v.", ex: "The meeting will commence at 2 PM." },
+      { id: 120, en: "Commit", zh: "承諾", pos: "v.", ex: "They are committed to improving the environment." },
+      { id: 121, en: "Commodity", zh: "商品", pos: "n.", ex: "Oil is an important global commodity." },
+      { id: 122, en: "Communicate", zh: "溝通", pos: "v.", ex: "We communicate mostly by email." },
+      { id: 123, en: "Community", zh: "社區", pos: "n.", ex: "He is a respected member of the local community." },
+      { id: 124, en: "Compare", zh: "比較", pos: "v.", ex: "You can't compare the two things." },
+      { id: 125, en: "Compel", zh: "強迫", pos: "v.", ex: "He felt compelled to tell the truth." },
+      { id: 126, en: "Compensate", zh: "補償", pos: "v.", ex: "The company compensated him for his injury." },
+      { id: 127, en: "Compete", zh: "競爭", pos: "v.", ex: "We have to compete with larger companies." },
+      { id: 128, en: "Compile", zh: "編譯；收集", pos: "v.", ex: "She compiled a list of potential clients." },
+      { id: 129, en: "Complicate", zh: "使複雜", pos: "v.", ex: "Don't complicate the issue any further." },
+      { id: 130, en: "Component", zh: "零件", pos: "n.", ex: "The factory produces computer components." },
+      { id: 131, en: "Compose", zh: "組成", pos: "v.", ex: "Water is composed of hydrogen and oxygen." },
+      { id: 132, en: "Comprehend", zh: "理解", pos: "v.", ex: "I don't fully comprehend the situation." },
+      { id: 133, en: "Compromise", zh: "妥協", pos: "v.", ex: "Both sides are willing to compromise." },
+      { id: 134, en: "Conceal", zh: "隱藏", pos: "v.", ex: "He tried to conceal his true identity." },
+      { id: 135, en: "Concentrate", zh: "專心", pos: "v.", ex: "I can't concentrate with all that noise." },
+      { id: 136, en: "Concept", zh: "概念", pos: "n.", ex: "The concept of infinity is hard to grasp." },
+      { id: 137, en: "Conclude", zh: "結論", pos: "v.", ex: "What can we conclude from this evidence?" },
+      { id: 138, en: "Concrete", zh: "具體的", pos: "adj.", ex: "We need concrete proof of your claims." },
+      { id: 139, en: "Condemn", zh: "譴責", pos: "v.", ex: "The government condemned the terrorist attack." },
+      { id: 140, en: "Conduct", zh: "進行", pos: "v.", ex: "The scientists conducted a series of experiments." },
+      { id: 141, en: "Confess", zh: "承認", pos: "v.", ex: "He confessed to sleeping during the meeting." },
+      { id: 142, en: "Confident", zh: "自信的", pos: "adj.", ex: "She is confident in her ability to win." },
+      { id: 143, en: "Confirm", zh: "確認", pos: "v.", ex: "Please confirm your reservation by tomorrow." },
+      { id: 144, en: "Conflict", zh: "衝突", pos: "n.", ex: "There is a conflict of interest here." },
+      { id: 145, en: "Conform", zh: "遵從", pos: "v.", ex: "You must conform to the safety rules." },
+      { id: 146, en: "Confront", 面對: "v.", ex: "He confronted his boss about the issue." },
+      { id: 147, en: "Confuse", zh: "使困惑", pos: "v.", ex: "The instructions confused me completely." },
+      { id: 148, en: "Congratulate", zh: "祝賀", pos: "v.", ex: "I want to congratulate you on your success." },
+      { id: 149, en: "Connect", zh: "連接", pos: "v.", ex: "The bridge connects the two cities." },
+      { id: 150, en: "Conscious", zh: "意識到的", pos: "adj.", ex: "He was fully conscious of his mistake." }
+    ];
+
+    const DAILY_GOAL = 5;
+    
+    // 全局狀態變數
+    let appState = 'home';
+    let learningQueue = [];
+    let todayWords = [];
+    let learnedCount = 0;
+    let isFlipped = false;
+    let quizQuestions = [];
+    let currentQuizIndex = 0;
+    let quizScore = 0;
+    let selectedAnswer = null;
+    let historyData = [];
+    let currentUser = null;
+
+    // Firebase 初始化 (如果全域環境有設定，則使用環境設定；否則使用備用設定或捕捉錯誤)
+    let app, auth, db;
+    try {
+      const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+      app = initializeApp(firebaseConfig);
+      auth = getAuth(app);
+      db = getFirestore(app);
+    } catch (e) {
+      console.warn("Firebase not fully configured or missing config:", e);
+    }
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'html-vocab-app-id';
+
+    // 處理 Firebase 認證
+    if (auth) {
+      const initAuth = async () => {
+        try {
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(auth, __initial_auth_token);
+          } else {
+            await signInAnonymously(auth);
+          }
+        } catch (error) {
+          console.error("Auth error:", error);
+        }
+      };
+      initAuth();
+
+      onAuthStateChanged(auth, (user) => {
+        currentUser = user;
+        if (user) {
+          fetchHistory();
+        }
+      });
+    }
+
+    // 讀取歷史紀錄
+    function fetchHistory() {
+      if (!currentUser || !db) return;
+      const historyRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'wordHistory');
+      const q = query(historyRef);
+      
+      onSnapshot(q, (snapshot) => {
+        const records = [];
+        snapshot.forEach((doc) => {
+          records.push({ id: doc.id, ...doc.data() });
+        });
+        records.sort((a, b) => b.learnedTimes - a.learnedTimes);
+        historyData = records;
+        updateCloudStatus();
+        renderHistoryList();
+      }, (error) => {
+        console.error("Fetch history error:", error);
+      });
+    }
+
+    // 儲存至雲端
+    async function saveToHistory(word) {
+      if (!currentUser || !db) return;
+      try {
+        const wordRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'wordHistory', word.id.toString());
+        const docSnap = await getDoc(wordRef);
+        
+        if (docSnap.exists()) {
+          await setDoc(wordRef, {
+            ...docSnap.data(),
+            learnedTimes: docSnap.data().learnedTimes + 1,
+            lastLearned: new Date().toISOString()
+          });
+        } else {
+          await setDoc(wordRef, {
+            wordId: word.id,
+            en: word.en,
+            zh: word.zh,
+            learnedTimes: 1,
+            firstLearned: new Date().toISOString(),
+            lastLearned: new Date().toISOString()
+          });
+        }
+      } catch (error) {
+        console.error("Save history error:", error);
+      }
+    }
+
+    // 語音播放功能
+    window.playAudio = function(text) {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'en-US';
+        utterance.rate = 0.9;
+        window.speechSynthesis.speak(utterance);
+      }
+    };
+
+    // 取得隨機選項
+    function getRandomOptions(correctAnswer, allWords) {
+      const options = [correctAnswer];
+      const pool = allWords.filter(w => w.zh !== correctAnswer.zh);
+      const shuffledPool = [...pool].sort(() => 0.5 - Math.random());
+      options.push(...shuffledPool.slice(0, 3));
+      return options.sort(() => 0.5 - Math.random());
+    }
+
+    // 切換畫面
+    function switchScreen(screen) {
+      appState = screen;
+      document.querySelectorAll('main > div').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('main > div').forEach(el => el.classList.remove('flex'));
+      
+      const target = document.getElementById(`screen-${screen}`);
+      if (target) {
+        target.classList.remove('hidden');
+        target.classList.add('flex');
+      }
+      
+      // 更新頂部按鈕狀態
+      const quitBtn = document.getElementById('nav-quit-btn');
+      if (screen !== 'home' && screen !== 'summary' && screen !== 'history') {
+        quitBtn.classList.remove('hidden');
+      } else {
+        quitBtn.classList.add('hidden');
+      }
+    }
+
+    // 開始學習
+    function startLearning() {
+      const shuffled = [...WORD_DATABASE].sort(() => 0.5 - Math.random());
+      const selected = shuffled.slice(0, DAILY_GOAL);
+      todayWords = selected;
+      learningQueue = [...selected];
+      learnedCount = 0;
+      isFlipped = false;
+      
+      renderLearningScreen();
+      switchScreen('learning');
+    }
+
+    // 渲染學習畫面
+    function renderLearningScreen() {
+      if (learningQueue.length === 0) {
+        prepareQuiz(todayWords);
+        return;
+      }
+
+      const currentWord = learningQueue[0];
+      const total = learnedCount + learningQueue.length;
+      const progress = (learnedCount / total) * 100;
+
+      // 更新進度
+      document.getElementById('learning-progress-text').innerText = `${learnedCount} / ${total}`;
+      document.getElementById('learning-progress-bar').style.width = `${progress}%`;
+
+      // 更新單字內容
+      document.getElementById('fc-en').innerText = currentWord.en;
+      document.getElementById('fc-pos').innerText = currentWord.pos;
+      document.getElementById('fc-zh').innerText = currentWord.zh;
+      document.getElementById('fc-ex').innerText = `"${currentWord.ex}"`;
+
+      // 綁定音頻按鈕
+      document.getElementById('fc-audio-en').onclick = (e) => { e.stopPropagation(); playAudio(currentWord.en); };
+      document.getElementById('fc-audio-ex').onclick = (e) => { e.stopPropagation(); playAudio(currentWord.ex); };
+
+      // 設置翻轉狀態
+      setCardFlipped(false);
+    }
+
+    // 設定單字卡翻轉狀態
+    function setCardFlipped(flipped) {
+      isFlipped = flipped;
+      const card = document.getElementById('flashcard');
+      const front = document.getElementById('fc-front');
+      const back = document.getElementById('fc-back');
+      const actions = document.getElementById('learning-actions');
+
+      if (flipped) {
+        card.classList.remove('card-unflipped');
+        card.classList.add('card-flipped');
+        front.classList.add('hidden');
+        back.classList.remove('hidden');
+        actions.classList.remove('opacity-0', 'pointer-events-none');
+        actions.classList.add('opacity-100');
+      } else {
+        card.classList.add('card-unflipped');
+        card.classList.remove('card-flipped');
+        front.classList.remove('hidden');
+        back.classList.add('hidden');
+        actions.classList.add('opacity-0', 'pointer-events-none');
+        actions.classList.remove('opacity-100');
+      }
+    }
+
+    // 處理學習回饋
+    function handleWordFeedback(isKnown) {
+      const currentWord = learningQueue.shift(); // 移除第一個
+      if (isKnown) {
+        learnedCount++;
+      } else {
+        learningQueue.push(currentWord); // 不熟放回後面
+      }
+      renderLearningScreen();
+    }
+
+    // 準備測驗
+    function prepareQuiz(words) {
+      const questions = words.map(word => ({
+        word: word,
+        options: getRandomOptions(word, WORD_DATABASE)
+      }));
+      
+      quizQuestions = questions.sort(() => 0.5 - Math.random());
+      currentQuizIndex = 0;
+      quizScore = 0;
+      selectedAnswer = null;
+      
+      renderQuizScreen();
+      switchScreen('quiz');
+    }
+
+    // 渲染測驗畫面
+    function renderQuizScreen() {
+      const currentQ = quizQuestions[currentQuizIndex];
+      const progress = (currentQuizIndex / quizQuestions.length) * 100;
+
+      // 更新進度與題目
+      document.getElementById('quiz-progress-text').innerText = `${currentQuizIndex + 1} / ${quizQuestions.length}`;
+      document.getElementById('quiz-progress-bar').style.width = `${progress}%`;
+      document.getElementById('quiz-word-en').innerText = currentQ.word.en;
+      document.getElementById('quiz-audio').onclick = () => playAudio(currentQ.word.en);
+
+      // 生成選項
+      const optionsContainer = document.getElementById('quiz-options');
+      optionsContainer.innerHTML = '';
+
+      currentQ.options.forEach((option, idx) => {
+        const btn = document.createElement('button');
+        btn.className = "w-full text-left p-5 rounded-2xl text-lg font-medium transition-all duration-300 flex justify-between items-center bg-white border-2 border-gray-100 text-gray-700 hover:border-indigo-300 hover:bg-indigo-50 shadow-sm";
+        
+        const span = document.createElement('span');
+        span.innerText = option.zh;
+        btn.appendChild(span);
+
+        // 綁定點擊事件
+        btn.onclick = () => handleAnswerSelect(option, currentQ, btn);
+        optionsContainer.appendChild(btn);
+      });
+    }
+
+    // 處理答案選擇
+    function handleAnswerSelect(option, currentQ, selectedBtn) {
+      if (selectedAnswer !== null) return; // 鎖定作答
+      selectedAnswer = option;
+      
+      const isCorrect = option.id === currentQ.word.id;
+      const allBtns = document.getElementById('quiz-options').querySelectorAll('button');
+      
+      allBtns.forEach(btn => {
+        btn.disabled = true;
+        const textSpan = btn.querySelector('span');
+        const isThisBtnCorrect = currentQ.options.find(o => o.zh === textSpan.innerText).id === currentQ.word.id;
+        
+        if (btn === selectedBtn) {
+          if (isCorrect) {
+            btn.className = "w-full text-left p-5 rounded-2xl text-lg font-medium transition-all duration-300 flex justify-between items-center bg-green-50 border-2 border-green-500 text-green-700 font-bold shadow-md transform scale-[1.02]";
+            btn.innerHTML += '<i class="fa-solid fa-check text-green-500 text-xl"></i>';
+            quizScore++;
+            saveToHistory(currentQ.word);
+          } else {
+            btn.className = "w-full text-left p-5 rounded-2xl text-lg font-medium transition-all duration-300 flex justify-between items-center bg-red-50 border-2 border-red-400 text-red-700";
+            btn.innerHTML += '<i class="fa-solid fa-xmark text-red-500 text-xl"></i>';
+          }
+        } else {
+          if (isThisBtnCorrect && !isCorrect) {
+             // 標示出正確答案
+             btn.className = "w-full text-left p-5 rounded-2xl text-lg font-medium transition-all duration-300 flex justify-between items-center bg-green-50 border-2 border-green-500 text-green-700";
+             btn.innerHTML += '<i class="fa-solid fa-check text-green-500 text-xl"></i>';
+          } else {
+             btn.className = "w-full text-left p-5 rounded-2xl text-lg font-medium transition-all duration-300 flex justify-between items-center bg-gray-50 border-2 border-gray-100 text-gray-400 opacity-50";
+          }
+        }
+      });
+
+      // 延遲跳轉
+      setTimeout(() => {
+        if (currentQuizIndex < quizQuestions.length - 1) {
+          currentQuizIndex++;
+          selectedAnswer = null;
+          renderQuizScreen();
+        } else {
+          renderSummaryScreen();
+          switchScreen('summary');
+        }
+      }, 1500);
+    }
+
+    // 渲染總結畫面
+    function renderSummaryScreen() {
+      document.getElementById('summary-total').innerText = todayWords.length;
+      document.getElementById('summary-score').innerText = `${quizScore}/${quizQuestions.length}`;
+      
+      const starsContainer = document.getElementById('summary-stars');
+      starsContainer.innerHTML = '';
+      const ratio = quizScore / quizQuestions.length;
+      let activeStars = ratio === 1 ? 3 : (ratio >= 0.6 ? 2 : 1);
+      
+      for(let i=1; i<=3; i++) {
+        const star = document.createElement('i');
+        star.className = `fa-solid fa-star ${i <= activeStars ? 'text-yellow-400' : 'text-gray-200'}`;
+        starsContainer.appendChild(star);
+      }
+
+      const msg = document.getElementById('summary-msg');
+      msg.innerText = ratio === 1 ? "太棒了！滿分過關！紀錄已儲存。" : "繼續保持，明天再接再厲！";
+    }
+
+    // 渲染歷史紀錄清單
+    function renderHistoryList() {
+      document.getElementById('history-total-count').innerText = historyData.length;
+      const listContainer = document.getElementById('history-list');
+      listContainer.innerHTML = '';
+
+      if (historyData.length === 0) {
+        listContainer.innerHTML = `
+          <div class="text-center py-12 text-gray-400 flex flex-col items-center">
+            <i class="fa-solid fa-clock-rotate-left text-5xl mb-3 opacity-50"></i>
+            <p>目前還沒有紀錄喔</p>
+            <p class="text-sm mt-1">快去完成今日的學習吧！</p>
+          </div>
+        `;
+        return;
+      }
+
+      historyData.forEach(record => {
+        const item = document.createElement('div');
+        item.className = "flex justify-between items-center p-3 hover:bg-blue-50 rounded-xl transition-colors group cursor-pointer";
+        item.onclick = () => window.playAudio(record.en); // 點擊整列發音
+        
+        item.innerHTML = `
+          <div class="flex flex-col">
+            <div class="flex items-center space-x-2">
+              <span class="font-bold text-gray-800 text-lg">${record.en}</span>
+              <button class="text-gray-300 group-hover:text-blue-500 transition-colors">
+                <i class="fa-solid fa-volume-high text-sm"></i>
+              </button>
+            </div>
+            <span class="text-sm text-gray-500">${record.zh}</span>
+          </div>
+          <div class="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-700 font-bold rounded-full text-sm">
+            ${record.learnedTimes}
+          </div>
+        `;
+        listContainer.appendChild(item);
+      });
+    }
+
+    // 更新雲端狀態文字
+    function updateCloudStatus() {
+      const statusDiv = document.getElementById('cloud-status');
+      if (currentUser) {
+        statusDiv.innerText = `已連線雲端存檔 (${historyData.length} 字)`;
+      }
+    }
+
+    // DOM 事件綁定
+    document.addEventListener('DOMContentLoaded', () => {
+      // 首頁數字初始化
+      document.getElementById('home-daily-goal').innerText = DAILY_GOAL;
+      document.getElementById('home-daily-goal-badge').innerText = DAILY_GOAL;
+
+      // 按鈕事件
+      document.getElementById('btn-start-learning').addEventListener('click', startLearning);
+      document.getElementById('btn-view-history').addEventListener('click', () => switchScreen('history'));
+      document.getElementById('btn-flip').addEventListener('click', () => setCardFlipped(true));
+      document.getElementById('btn-feedback-no').addEventListener('click', () => handleWordFeedback(false));
+      document.getElementById('btn-feedback-yes').addEventListener('click', () => handleWordFeedback(true));
+      document.getElementById('btn-sum-history').addEventListener('click', () => switchScreen('history'));
+      document.getElementById('btn-sum-home').addEventListener('click', () => switchScreen('home'));
+      document.getElementById('btn-hist-back').addEventListener('click', () => switchScreen('home'));
+      
+      // 頂部導覽列點擊
+      document.getElementById('logo-btn').addEventListener('click', () => {
+        if(appState !== 'home') switchScreen('home');
+      });
+
+      // 中斷離開 Modal 處理
+      const quitBtn = document.getElementById('nav-quit-btn');
+      const modal = document.getElementById('modal-quit');
+      const cancelBtn = document.getElementById('btn-modal-cancel');
+      const confirmBtn = document.getElementById('btn-modal-confirm');
+
+      quitBtn.addEventListener('click', () => {
+        modal.classList.remove('hidden');
+      });
+      
+      cancelBtn.addEventListener('click', () => {
+        modal.classList.add('hidden');
+      });
+
+      confirmBtn.addEventListener('click', () => {
+        modal.classList.add('hidden');
+        switchScreen('home');
+      });
+    });
+
+  </script>
+</body>
+</html>
